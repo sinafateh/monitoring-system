@@ -97,7 +97,14 @@ function toGregorian(jy, jm, jd) {
 }
 
 const today = todayJalali();
-const state = { year: today[0], month: today[1], day: today[2], hour: new Date().getHours(), minute: new Date().getMinutes(), calendarOpen: false, sidebarOpen: false };
+const state = {
+  year: today[0], month: today[1], day: today[2],
+  draftYear: today[0], draftMonth: today[1], draftDay: today[2],
+  hour: new Date().getHours(), minute: new Date().getMinutes(),
+  draftHour: new Date().getHours(), draftMinute: new Date().getMinutes(),
+  calendarOpen: false, calendarMode: "days", calendarYearPage: Math.floor(today[0] / 12) * 12,
+  timeOpen: false, sidebarOpen: false,
+};
 if (localStorage.getItem("fire-panel-theme") === "dark") document.documentElement.classList.add("dark");
 
 function renderShell() {
@@ -107,7 +114,7 @@ function renderShell() {
       <aside class="sidebar" id="sidebar">
         <div class="brand-row">
           <div class="brand-mark">${icons.panel}</div>
-          <div><strong>پایش‌یار</strong><small>مدیریت پنل‌های حریق</small></div>
+          <div><strong>پایش‌</strong><small>مدیریت پنل‌های حریق</small></div>
           <button class="icon-button sidebar-close" id="sidebar-close" aria-label="بستن منو">${icons.x}</button>
         </div>
         <div class="installer-card"><span class="online-dot"></span><div><b>حساب نصاب</b><small>دسترسی فعال</small></div><span class="tiny-chevron">${icons.chevronDown}</span></div>
@@ -135,7 +142,7 @@ function renderShell() {
             <div class="primary-column">
               <article class="panel-card date-time-card">
                 <div class="card-heading"><div class="heading-icon teal">${icons.calendar}</div><div><h3>تنظیم تاریخ و ساعت</h3><p>مقدار جدید را وارد کنید و برای اعمال روی پنل آماده شوید.</p></div><span class="step-badge">مرحله ۱ از ۱</span></div>
-                <div class="form-area"><div class="field-block date-field-wrap"><label for="date-input">تاریخ پنل</label><div class="input-with-icon"><input id="date-input" type="text" readonly value="${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}" aria-label="تاریخ پنل" aria-haspopup="dialog" aria-expanded="${state.calendarOpen}">${icons.calendar}</div>${renderCalendar()}</div><div class="field-block"><label for="time-input">ساعت پنل</label><div class="input-with-icon time-input"><input id="time-input" type="time" value="${pad(state.hour)}:${pad(state.minute)}" aria-label="ساعت پنل">${icons.clock}</div><small class="field-hint">فرمت ساعت ۲۴ ساعته</small></div></div>
+                <div class="form-area"><div class="field-block date-field-wrap"><label for="date-input">تاریخ پنل</label><div class="input-with-icon"><input id="date-input" type="text" readonly value="${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}" aria-label="تاریخ پنل" aria-haspopup="dialog" aria-expanded="${state.calendarOpen}">${icons.calendar}</div>${renderCalendar()}</div><div class="field-block time-field-wrap"><label for="time-input">ساعت پنل</label><div class="input-with-icon time-input"><input id="time-input" type="text" readonly value="${faDigits(pad(state.hour))}:${faDigits(pad(state.minute))}" aria-label="ساعت پنل" aria-haspopup="dialog" aria-expanded="${state.timeOpen}">${icons.clock}</div>${renderTimePicker()}<small class="field-hint">فرمت ساعت ۲۴ ساعته</small></div></div>
                 <div class="selected-summary"><div class="summary-icon">${icons.check}</div><div><span>مقدار انتخاب‌شده</span><b id="selection-summary">${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}، ساعت ${faDigits(pad(state.hour))}:${faDigits(pad(state.minute))}</b></div><span class="local-badge">شمسی</span></div>
                 <div class="card-actions"><button class="btn-secondary" id="read-panel">${icons.refresh}خواندن از پنل</button><div><button class="btn-ghost" id="cancel-button">انصراف</button><button class="btn-primary" id="apply-button">${icons.check}اعمال روی پنل</button></div></div>
               </article>
@@ -152,15 +159,34 @@ function renderShell() {
 function daysInMonth(year, month) { return month <= 6 ? 31 : month <= 11 ? 30 : isLeapJalaaliYear(year) ? 30 : 29; }
 function renderCalendar() {
   if (!state.calendarOpen) return `<div class="calendar-popover hidden" id="calendar-popover"></div>`;
-  const firstDay = new Date(`${toGregorian(state.year, state.month, 1)}T12:00:00`).getDay();
+  const header = `<div class="calendar-header"><button class="calendar-nav" type="button" data-calendar-nav="prev" aria-label="قبلی">${icons.chevronRight}</button><div class="calendar-title"><button type="button" class="calendar-select-button" data-calendar-view="months">${monthNames[state.draftMonth - 1]}</button><button type="button" class="calendar-select-button year" data-calendar-view="years">${faDigits(state.draftYear)}</button></div><button class="calendar-nav" type="button" data-calendar-nav="next" aria-label="بعدی">${icons.chevronLeft}</button></div>`;
+  const calendarActions = `<div class="calendar-actions"><button type="button" class="btn-ghost" data-date-cancel>انصراف</button><button type="button" class="btn-primary" data-date-confirm>${icons.check}تأیید تاریخ</button></div>`;
+
+  if (state.calendarMode === "months") {
+    return `<div class="calendar-popover" id="calendar-popover" role="dialog" aria-label="انتخاب ماه">${header}<div class="picker-grid month-picker">${monthNames.map((month, index) => `<button type="button" class="picker-option${state.draftMonth === index + 1 ? " selected" : ""}" data-month-select="${index + 1}">${month}</button>`).join("")}</div><button class="today-button" type="button" data-today="true">امروز، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button>${calendarActions}</div>`;
+  }
+
+  if (state.calendarMode === "years") {
+    const years = Array.from({ length: 12 }, (_, index) => state.calendarYearPage + index);
+    return `<div class="calendar-popover" id="calendar-popover" role="dialog" aria-label="انتخاب سال">${header}<div class="picker-grid year-picker">${years.map((year) => `<button type="button" class="picker-option${state.draftYear === year ? " selected" : ""}" data-year-select="${year}">${faDigits(year)}</button>`).join("")}</div><button class="today-button" type="button" data-today="true">امروز، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button>${calendarActions}</div>`;
+  }
+
+  const firstDay = new Date(`${toGregorian(state.draftYear, state.draftMonth, 1)}T12:00:00`).getDay();
   const saturdayIndex = (firstDay + 1) % 7;
   const cells = [];
   for (let i = 0; i < saturdayIndex; i++) cells.push(`<span class="calendar-day empty"></span>`);
-  for (let day = 1; day <= daysInMonth(state.year, state.month); day++) {
-    const selected = day === state.day && state.month === today[1] && state.year === today[0] ? " selected" : day === state.day ? " selected" : "";
+  for (let day = 1; day <= daysInMonth(state.draftYear, state.draftMonth); day++) {
+    const selected = day === state.draftDay ? " selected" : "";
     cells.push(`<button class="calendar-day${selected}" data-day="${day}" type="button">${faDigits(day)}</button>`);
   }
-  return `<div class="calendar-popover" id="calendar-popover" role="dialog" aria-label="انتخاب تاریخ"><div class="calendar-header"><button class="calendar-nav" type="button" data-month="prev" aria-label="ماه قبل">${icons.chevronRight}</button><div><b>${monthNames[state.month - 1]}</b><span>${faDigits(state.year)}</span></div><button class="calendar-nav" type="button" data-month="next" aria-label="ماه بعد">${icons.chevronLeft}</button></div><div class="week-row">${weekDays.map((day) => `<span>${day.slice(0, 2)}</span>`).join("")}</div><div class="days-grid">${cells.join("")}</div><button class="today-button" type="button" data-today="true">امروز، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button></div>`;
+  return `<div class="calendar-popover" id="calendar-popover" role="dialog" aria-label="انتخاب تاریخ">${header}<div class="week-row">${weekDays.map((day) => `<span>${day.slice(0, 2)}</span>`).join("")}</div><div class="days-grid">${cells.join("")}</div><button class="today-button" type="button" data-today="true">امروز، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button>${calendarActions}</div>`;
+}
+
+function renderTimePicker() {
+  if (!state.timeOpen) return `<div class="time-popover hidden" id="time-popover"></div>`;
+  const minuteOptions = Array.from({ length: 60 }, (_, minute) => minute);
+  const wheel = (items, selected, attribute, type) => `<div class="wheel-viewport"><div class="wheel-options ${type}-wheel" data-wheel-type="${type}" data-selected="${selected}"><span class="wheel-spacer" aria-hidden="true"></span>${items.map((value) => `<button type="button" class="time-option${selected === value ? " selected" : ""}" data-${attribute}="${value}">${faDigits(pad(value))}</button>`).join("")}<span class="wheel-spacer" aria-hidden="true"></span></div><div class="wheel-selection-band" aria-hidden="true"></div></div>`;
+  return `<div class="time-popover" id="time-popover" role="dialog" aria-label="انتخاب ساعت"><div class="time-popover-head"><div><b>انتخاب ساعت پنل</b><small>ردیف موردنظر را اسکرول کنید</small></div><strong id="draft-time">${faDigits(pad(state.draftHour))}:${faDigits(pad(state.draftMinute))}</strong></div><div class="time-picker-columns"><div class="time-picker-column"><label>ساعت</label>${wheel(Array.from({ length: 24 }, (_, hour) => hour), state.draftHour, "hour", "hour")}</div><div class="time-picker-column"><label>دقیقه</label>${wheel(minuteOptions, state.draftMinute, "minute", "minute")}</div></div><div class="time-popover-actions"><button type="button" class="btn-ghost" data-time-cancel>انصراف</button><button type="button" class="btn-primary" data-time-confirm>${icons.check}تأیید ساعت</button></div></div>`;
 }
 
 function showToast(message, tone = "success") {
@@ -176,7 +202,7 @@ function updateSummary() {
   const timeInput = document.querySelector("#time-input");
   const summary = document.querySelector("#selection-summary");
   if (dateInput) dateInput.value = `${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}`;
-  if (timeInput) timeInput.value = `${pad(state.hour)}:${pad(state.minute)}`;
+  if (timeInput) timeInput.value = `${faDigits(pad(state.hour))}:${faDigits(pad(state.minute))}`;
   if (summary) summary.textContent = `${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}، ساعت ${faDigits(pad(state.hour))}:${faDigits(pad(state.minute))}`;
 }
 function redrawCalendar() {
@@ -187,13 +213,100 @@ function redrawCalendar() {
   wrapper.insertAdjacentHTML("beforeend", renderCalendar());
   document.querySelector("#date-input")?.setAttribute("aria-expanded", String(state.calendarOpen));
 }
+function redrawTimePicker() {
+  const wrapper = document.querySelector(".time-field-wrap");
+  if (!wrapper) return;
+  const old = wrapper.querySelector("#time-popover");
+  old?.remove();
+  wrapper.insertAdjacentHTML("beforeend", renderTimePicker());
+  document.querySelector("#time-input")?.setAttribute("aria-expanded", String(state.timeOpen));
+  if (state.timeOpen) requestAnimationFrame(() => {
+    const hourWheel = document.querySelector(".hour-wheel");
+    const minuteWheel = document.querySelector(".minute-wheel");
+    setWheelPosition(hourWheel, state.draftHour);
+    setWheelPosition(minuteWheel, state.draftMinute);
+    bindWheel(hourWheel, "hour");
+    bindWheel(minuteWheel, "minute");
+  });
+}
+
+function setWheelPosition(wheel, value) {
+  if (!wheel) return;
+  const option = wheel.querySelector(`[data-${wheel.dataset.wheelType}="${value}"]`);
+  if (option) wheel.scrollTop = option.offsetTop - (wheel.clientHeight - option.offsetHeight) / 2;
+}
+
+function updateWheelDraft(type, value) {
+  if (type === "hour") state.draftHour = value;
+  if (type === "minute") state.draftMinute = value;
+  const wheel = document.querySelector(`.${type}-wheel`);
+  wheel?.querySelectorAll(".time-option").forEach((option) => option.classList.toggle("selected", Number(option.dataset[type]) === value));
+  const draftTime = document.querySelector("#draft-time");
+  if (draftTime) draftTime.textContent = `${faDigits(pad(state.draftHour))}:${faDigits(pad(state.draftMinute))}`;
+}
+
+function getCenteredWheelValue(wheel) {
+  if (!wheel) return null;
+  const center = wheel.scrollTop + wheel.clientHeight / 2;
+  let closest = null;
+  let distance = Infinity;
+  wheel.querySelectorAll(".time-option").forEach((option) => {
+    const optionCenter = option.offsetTop + option.offsetHeight / 2;
+    const currentDistance = Math.abs(optionCenter - center);
+    if (currentDistance < distance) { closest = option; distance = currentDistance; }
+  });
+  return closest ? Number(closest.dataset[wheel.dataset.wheelType]) : null;
+}
+
+function bindWheel(wheel, type) {
+  if (!wheel) return;
+  let scrollTimer;
+  wheel.addEventListener("scroll", () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const value = getCenteredWheelValue(wheel);
+      if (value !== null) updateWheelDraft(type, value);
+    }, 70);
+  }, { passive: true });
+}
 function changeMonth(delta) {
-  state.month += delta;
-  if (state.month === 13) { state.month = 1; state.year += 1; }
-  if (state.month === 0) { state.month = 12; state.year -= 1; }
-  state.day = Math.min(state.day, daysInMonth(state.year, state.month));
+  state.calendarOpen = true;
+  state.calendarMode = "days";
+  state.draftMonth += delta;
+  if (state.draftMonth === 13) { state.draftMonth = 1; state.draftYear += 1; }
+  if (state.draftMonth === 0) { state.draftMonth = 12; state.draftYear -= 1; }
+  state.draftDay = Math.min(state.draftDay, daysInMonth(state.draftYear, state.draftMonth));
+  state.calendarYearPage = Math.floor(state.draftYear / 12) * 12;
+  redrawCalendar();
+}
+
+function openDatePicker() {
+  state.draftYear = state.year;
+  state.draftMonth = state.month;
+  state.draftDay = state.day;
+  state.calendarYearPage = Math.floor(state.draftYear / 12) * 12;
+  state.calendarMode = "days";
+  state.calendarOpen = true;
+}
+
+function confirmDate() {
+  state.year = state.draftYear;
+  state.month = state.draftMonth;
+  state.day = state.draftDay;
+  state.calendarOpen = false;
+  state.calendarMode = "days";
   redrawCalendar();
   updateSummary();
+  showToast("تاریخ جدید انتخاب شد.");
+}
+
+function cancelDate() {
+  state.draftYear = state.year;
+  state.draftMonth = state.month;
+  state.draftDay = state.day;
+  state.calendarOpen = false;
+  state.calendarMode = "days";
+  redrawCalendar();
 }
 function updateThemeButton() {
   const button = document.querySelector("#theme-toggle");
@@ -214,20 +327,63 @@ function bindEvents() {
     localStorage.setItem("fire-panel-theme", dark ? "dark" : "light");
     updateThemeButton();
   });
-  $("#date-input").addEventListener("click", () => { state.calendarOpen = !state.calendarOpen; redrawCalendar(); });
+  $("#date-input").addEventListener("click", () => {
+    if (state.timeOpen) { showToast("ابتدا ساعت را تأیید یا لغو کنید.", "info"); return; }
+    if (!state.calendarOpen) openDatePicker();
+    redrawCalendar();
+  });
   $(".date-field-wrap").addEventListener("click", (event) => {
     const dayButton = event.target.closest("[data-day]");
-    const monthButton = event.target.closest("[data-month]");
+    const calendarView = event.target.closest("[data-calendar-view]");
+    const calendarNav = event.target.closest("[data-calendar-nav]");
+    const monthSelect = event.target.closest("[data-month-select]");
+    const yearSelect = event.target.closest("[data-year-select]");
     const todayButton = event.target.closest("[data-today]");
-    if (dayButton) { state.day = Number(dayButton.dataset.day); state.calendarOpen = false; redrawCalendar(); updateSummary(); }
-    if (monthButton) changeMonth(monthButton.dataset.month === "next" ? 1 : -1);
-    if (todayButton) { [state.year, state.month, state.day] = today; state.calendarOpen = false; redrawCalendar(); updateSummary(); }
+    const dateConfirm = event.target.closest("[data-date-confirm]");
+    const dateCancel = event.target.closest("[data-date-cancel]");
+    if (dayButton) { state.draftDay = Number(dayButton.dataset.day); redrawCalendar(); }
+    if (calendarView) {
+      state.calendarMode = calendarView.dataset.calendarView;
+      if (state.calendarMode === "years") state.calendarYearPage = Math.floor(state.draftYear / 12) * 12;
+      redrawCalendar();
+    }
+    if (calendarNav) {
+      if (state.calendarMode === "years") {
+        state.calendarYearPage += calendarNav.dataset.calendarNav === "next" ? 12 : -12;
+        redrawCalendar();
+      } else if (state.calendarMode === "months") {
+        state.draftYear += calendarNav.dataset.calendarNav === "next" ? 1 : -1;
+        state.draftDay = Math.min(state.draftDay, daysInMonth(state.draftYear, state.draftMonth));
+        state.calendarYearPage = Math.floor(state.draftYear / 12) * 12;
+        redrawCalendar();
+      } else {
+        changeMonth(calendarNav.dataset.calendarNav === "next" ? 1 : -1);
+      }
+    }
+    if (monthSelect) { state.draftMonth = Number(monthSelect.dataset.monthSelect); state.draftDay = Math.min(state.draftDay, daysInMonth(state.draftYear, state.draftMonth)); state.calendarMode = "days"; redrawCalendar(); }
+    if (yearSelect) { state.draftYear = Number(yearSelect.dataset.yearSelect); state.draftDay = Math.min(state.draftDay, daysInMonth(state.draftYear, state.draftMonth)); state.calendarYearPage = Math.floor(state.draftYear / 12) * 12; state.calendarMode = "days"; redrawCalendar(); }
+    if (todayButton) { [state.draftYear, state.draftMonth, state.draftDay] = today; state.calendarMode = "days"; redrawCalendar(); }
+    if (dateConfirm) confirmDate();
+    if (dateCancel) cancelDate();
   });
-  $("#time-input").addEventListener("input", (event) => { const [hour, minute] = event.target.value.split(":").map(Number); state.hour = hour || 0; state.minute = minute || 0; updateSummary(); });
+  $(".time-field-wrap").addEventListener("click", (event) => {
+    const hourOption = event.target.closest("[data-hour]");
+    const minuteOption = event.target.closest("[data-minute]");
+    const confirmButton = event.target.closest("[data-time-confirm]");
+    const cancelButton = event.target.closest("[data-time-cancel]");
+    if (event.target.closest("#time-input")) {
+      if (state.calendarOpen) { showToast("ابتدا تاریخ را تأیید یا لغو کنید.", "info"); return; }
+      if (!state.timeOpen) { state.draftHour = state.hour; state.draftMinute = state.minute; state.timeOpen = true; }
+      redrawTimePicker();
+    }
+    if (hourOption) { hourOption.scrollIntoView({ block: "center", behavior: "smooth" }); updateWheelDraft("hour", Number(hourOption.dataset.hour)); }
+    if (minuteOption) { minuteOption.scrollIntoView({ block: "center", behavior: "smooth" }); updateWheelDraft("minute", Number(minuteOption.dataset.minute)); }
+    if (confirmButton) { state.hour = state.draftHour; state.minute = state.draftMinute; state.timeOpen = false; redrawTimePicker(); updateSummary(); showToast("ساعت جدید انتخاب شد."); }
+    if (cancelButton) { state.draftHour = state.hour; state.draftMinute = state.minute; state.timeOpen = false; redrawTimePicker(); }
+  });
   $("#read-panel").addEventListener("click", () => showToast("اتصال به پنل هنوز فعال نشده است.", "info"));
-  $("#cancel-button").addEventListener("click", () => { [state.year, state.month, state.day] = today; state.hour = new Date().getHours(); state.minute = new Date().getMinutes(); updateSummary(); showToast("تغییرات فرم لغو شد.", "info"); });
+  $("#cancel-button").addEventListener("click", () => { [state.year, state.month, state.day] = today; [state.draftYear, state.draftMonth, state.draftDay] = today; state.hour = new Date().getHours(); state.minute = new Date().getMinutes(); state.draftHour = state.hour; state.draftMinute = state.minute; state.calendarOpen = false; state.timeOpen = false; redrawCalendar(); redrawTimePicker(); updateSummary(); showToast("تغییرات فرم لغو شد.", "info"); });
   $("#apply-button").addEventListener("click", () => showToast("تنظیمات آماده‌ی اعمال روی پنل شد؛ اتصال پنل در نسخه بعدی فعال می‌شود."));
-  document.addEventListener("click", (event) => { if (state.calendarOpen && !event.target.closest(".date-field-wrap")) { state.calendarOpen = false; redrawCalendar(); } });
 }
 
 renderShell();
