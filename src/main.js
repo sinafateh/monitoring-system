@@ -32,6 +32,17 @@ const monthNames = ["فروردین", "اردیبهشت", "خرداد", "تیر"
 const weekDays = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"];
 const englishMonthNames = ["Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar", "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand"];
 const englishWeekDays = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const loopDeviceTypes = [
+  { key: "smoke", fa: "دتکتور دود", en: "Smoke Detector", category: "other" },
+  { key: "heat", fa: "دتکتور حرارت", en: "Heat Detector", category: "other" },
+  { key: "multi", fa: "دتکتور ترکیبی", en: "Multi Detector", category: "other" },
+  { key: "manual", fa: "شستی اعلام حریق", en: "Manual Call Point", category: "control" },
+  { key: "sounder", fa: "آژیر / خروجی", en: "Sounder/Output", category: "relay" },
+  { key: "zone", fa: "ماژول زون", en: "Zone Module", category: "control" },
+  { key: "input", fa: "ماژول ورودی", en: "Input Module", category: "control" },
+  { key: "io", fa: "ماژول ورودی/خروجی", en: "Input/output Module", category: "control" },
+];
+const loopCategories = ["relay", "control", "other", "cl-b-s-b", "cl-b-s-c"];
 
 function div(a, b) { return ~~(a / b); }
 function mod(a, b) { return a - ~~(a / b) * b; }
@@ -107,7 +118,17 @@ const state = {
   draftHour: new Date().getHours(), draftMinute: new Date().getMinutes(),
   calendarOpen: false, calendarMode: "days", calendarYearPage: Math.floor(today[0] / 12) * 12,
   timeOpen: false, sidebarOpen: false, sidebarCollapsed: false,
+  dailyDayNightEnabled: true, nightStartHour: 22, nightStartMinute: 0, nightEndHour: 7, nightEndMinute: 0,
+  weekendEnabled: true, weekendDay1: "friday", weekendDay2: "thursday", holidayEnabled: false,
+  nightTimeOpen: null, draftNightStartHour: 22, draftNightStartMinute: 0, draftNightEndHour: 7, draftNightEndMinute: 0,
+  holidayYear: today[0], holidayMonth: 1, holidayDay: 1,
+  draftHolidayYear: today[0], draftHolidayMonth: 1, draftHolidayDay: 1,
+  holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
+  selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
   view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
+  selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopCards: [],
+  groupTab: "zone", zoneGroupNumber: 1, zoneLoopCardId: "loop-1", zonePreAlarm: {}, zoneGroups: {},
+  ioInputGroupNumber: 1, ioOutputGroupNumber: 1, ioLoopCardId: "loop-1", ioGroups: {}, ioInputGroups: {}, ioOutputGroups: {}, ioRelations: {}, groupSelectedDeviceKey: null, groupPreviewOpen: false,
   language: localStorage.getItem("fire-panel-language") || "fa",
   openSettingsSections: { system: true, advanced: true, gsm: true },
 };
@@ -119,6 +140,42 @@ const projects = [
   { id: "mehr", name: "کارخانه صنایع مهر", location: "البرز، شهرک صنعتی", type: "کارخانه صنعتی", status: "نیازمند بررسی", panels: [{ id: "mehr-main", name: "پنل سالن تولید", code: "FIRE-CTRL-21", status: "متصل", alarms: 0 }, { id: "mehr-office", name: "پنل ساختمان اداری", code: "FIRE-CTRL-22", status: "آفلاین", alarms: 0 }, { id: "mehr-storage", name: "پنل انبار", code: "FIRE-CTRL-23", status: "متصل", alarms: 1 }, { id: "mehr-gate", name: "پنل نگهبانی", code: "FIRE-CTRL-24", status: "متصل", alarms: 0 }] },
   { id: "nik", name: "هتل نیکان", location: "مشهد، بلوار سجاد", type: "هتل", status: "آنلاین", panels: [{ id: "nik-main", name: "پنل اصلی هتل", code: "FIRE-CTRL-31", status: "متصل", alarms: 0 }, { id: "nik-kitchen", name: "پنل آشپزخانه", code: "FIRE-CTRL-32", status: "متصل", alarms: 0 }] },
 ];
+
+function makeLoopDevice(cardId, number, typeKey, overrides = {}) {
+  const type = loopDeviceTypes.find((item) => item.key === typeKey) || loopDeviceTypes[0];
+  return {
+    id: `${cardId}-device-${number}`,
+    number,
+    enabled: true,
+    style: "class-b",
+    type: type.key,
+    category: type.category,
+    ip: `001.${String(number).padStart(3, "0")}`,
+    inputType: "alarm",
+    deactivation: "silence",
+    sensitivity: "medium",
+    nightMode: "day",
+    location: "طبقه ۱ / راهروی شمالی",
+    ...overrides,
+  };
+}
+
+function createInitialLoopCards() {
+  return [
+    { id: "loop-1", label: "LoopCard1", devices: [makeLoopDevice("loop-1", 1, "smoke"), makeLoopDevice("loop-1", 2, "heat", { location: "طبقه ۱ / موتورخانه" }), makeLoopDevice("loop-1", 3, "manual", { category: "control", location: "طبقه ۱ / ورودی اصلی" }), makeLoopDevice("loop-1", 4, "sounder", { category: "relay", enabled: false, nightMode: "night" })] },
+    { id: "loop-2", label: "LoopCard2", devices: [makeLoopDevice("loop-2", 1, "multi"), makeLoopDevice("loop-2", 2, "zone", { category: "control", location: "پارکینگ / تابلو زون" }), makeLoopDevice("loop-2", 3, "input", { location: "پارکینگ / ورودی" })] },
+    { id: "loop-3", label: "LoopCard3", devices: [makeLoopDevice("loop-3", 1, "io", { location: "طبقه ۲ / اتاق کنترل" }), makeLoopDevice("loop-3", 2, "sounder", { category: "relay", location: "طبقه ۲ / راهرو" })] },
+    { id: "loop-4", label: "LoopCard4", devices: [] },
+  ];
+}
+
+state.loopCards = createInitialLoopCards();
+state.zoneGroups = { 1: [{ loopId: "loop-1", deviceId: "loop-1-device-1" }] };
+state.zonePreAlarm = { 1: true };
+state.ioGroups = { "1-1": { inputs: [], outputs: [], activeCount: 1, outputActiveFor: "fire", delay: 0, status: true } };
+state.ioInputGroups = { 1: [] };
+state.ioOutputGroups = { 1: [] };
+state.ioRelations = { "1-1": { activeCount: 1, outputActiveFor: "fire", delay: 0, status: true } };
 
 const settingsTree = [
   { id: "system", label: "سیستم", en: "System", icon: "settings", children: [
@@ -519,20 +576,588 @@ function renderLoopSetting() {
 }
 
 function renderNetworkSetting() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>تنظیمات شبکه پنل‌ها</h3><p>ارتباط چند پنل و فرمان‌های سراسری را مدیریت کنید.</p></div><span class="status-chip amber">پیش‌نویس</span></div><div class="network-grid">${renderToggleRow("وضعیت شبکه", "پشتیبانی از حداکثر ۸ پنل", true)}${renderToggleRow("Master Silence · ارسال", "ارسال فرمان سکوت به پنل‌ها", true)}${renderToggleRow("Master Silence · دریافت", "پذیرش فرمان سکوت", true)}${renderToggleRow("Master Evacuate · ارسال", "ارسال فرمان تخلیه", false)}${renderToggleRow("خروجی حریق", "اعلام حریق روی شبکه", true)}${renderToggleRow("خروجی خطا", "اعلام خطای پنل روی شبکه", true)}${renderToggleRow("NAC’s", "همگام‌سازی خروجی آژیر", false)}</div>${renderSettingActions()}</article>`;
+  const english = state.language === "en";
+  const option = (label, description, enabled = true) => `<label class="network-option"><div><b>${label}</b><small>${description}</small></div><input type="checkbox" ${enabled ? "checked" : ""} aria-label="${label}"><i class="network-toggle" aria-hidden="true"></i></label>`;
+  const section = (title, description, rows) => `<section class="network-section"><div class="network-section-head"><h4>${title}</h4><small>${description}</small></div><div class="network-section-list">${rows}</div></section>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Panel network settings" : "تنظیمات شبکه پنل‌ها"}</h3><p>${english ? "Configure network availability, master commands, and shared outputs." : "وضعیت شبکه، فرمان‌های سراسری و خروجی‌های مشترک را تنظیم کنید."}</p></div><span class="status-chip amber">${english ? "Draft" : "پیش‌نویس"}</span></div><div class="network-settings">${section(english ? "Network Status" : "وضعیت شبکه", english ? "Enable or disable panel networking." : "فعال یا غیرفعال کردن ارتباط شبکه پنل.", option(english ? "Network Status" : "وضعیت شبکه", english ? "Panel network communication" : "ارتباط شبکه پنل", true))}${section("Master Silence", english ? "Global silence command permissions." : "مجوزهای فرمان سکوت سراسری.", option(english ? "Send" : "ارسال", english ? "Send the silence command to network panels." : "ارسال فرمان سکوت به پنل‌های شبکه.", true) + option(english ? "Accept" : "دریافت", english ? "Accept silence commands from the network." : "پذیرش فرمان‌های سکوت از شبکه.", true))}${section("Master Evacuate", english ? "Global evacuation command permissions." : "مجوزهای فرمان تخلیه سراسری.", option(english ? "Send" : "ارسال", english ? "Send the evacuation command to network panels." : "ارسال فرمان تخلیه به پنل‌های شبکه.", false) + option(english ? "Accept" : "دریافت", english ? "Accept evacuation commands from the network." : "پذیرش فرمان‌های تخلیه از شبکه.", false))}${section(english ? "Network Output Configuration" : "پیکربندی خروجی شبکه", english ? "Choose which output states are shared across the network." : "انتخاب وضعیت خروجی‌هایی که در شبکه به اشتراک گذاشته می‌شوند.", option(english ? "Fire Output" : "خروجی حریق", english ? "Share fire output status on the network." : "اشتراک وضعیت خروجی حریق در شبکه.", true) + option(english ? "Fault Output" : "خروجی خطا", english ? "Share fault output status on the network." : "اشتراک وضعیت خروجی خطا در شبکه.", true) + option(english ? "Supervisory Output" : "خروجی نظارتی", english ? "Share supervisory output status on the network." : "اشتراک وضعیت خروجی نظارتی در شبکه.", true) + option("NAC’s", english ? "Share notification appliance circuit output." : "اشتراک خروجی مدار آژیر در شبکه.", false))}</div>${renderSettingActions()}</article>`;
 }
 
 function renderNightSetting() {
-  return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>برنامه روز و شب</h3><p>بازه‌های زمانی حالت شب و روز پنل را تعیین کنید.</p></div><span class="status-chip green">فعال</span></div><div class="form-area compact-form"><div class="field-block"><label>شروع حالت شب</label><div class="fake-input">${icons.clock}<span>۲۲:۰۰</span></div></div><div class="field-block"><label>پایان حالت شب</label><div class="fake-input">${icons.clock}<span>۰۷:۰۰</span></div></div></div><div class="night-options">${renderToggleRow("آخر هفته", "اعمال حالت شب در روزهای تعطیل", true)}${renderToggleRow("تعطیلات رسمی", "استفاده از تقویم تعطیلات پروژه", false)}</div>${renderSettingActions()}</article><article class="sub-card holiday-card"><div class="sub-card-head"><div><h3>تعطیلات ثبت‌شده</h3><p>تاریخ‌های خاص پروژه</p></div><button type="button" class="btn-secondary compact">+ افزودن</button></div><div class="holiday-list"><div><span>۱۴۰۵/۰۱/۰۱</span><b>نوروز</b><button type="button">×</button></div><div><span>۱۴۰۵/۰۱/۱۳</span><b>روز طبیعت</b><button type="button">×</button></div></div></article></div>`;
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const statusLabel = (enabled) => enabled ? (english ? "Enabled" : "فعال") : (english ? "Disabled" : "غیرفعال");
+  const timeValue = (hour, minute) => `${faDigits(pad(hour))}:${faDigits(pad(minute))}`;
+  const switchRow = (id, label, description, enabled) => `<label class="night-switch-row${disabled ? " is-disabled" : ""}"><span><b>${label}</b><small>${description}</small></span><span class="night-switch-wrap"><em>${statusLabel(enabled)}</em><input type="checkbox" data-night-toggle="${id}" ${enabled ? "checked" : ""}${disabledAttr}><i class="night-switch"></i></span></label>`;
+  const timeField = (kind, label, hour, minute) => `<div class="field-block night-time-field"><label for="night-time-${kind}">${label}</label><div class="input-with-icon time-input"><input id="night-time-${kind}" class="night-time-input" type="text" readonly value="${timeValue(hour, minute)}" data-night-time-input="${kind}" aria-label="${label}"${disabledAttr}>${icons.clock}</div>${renderNightTimePicker(kind, english)}</div>`;
+  const weekendDays = english ? [["saturday", "Saturday"], ["sunday", "Sunday"], ["monday", "Monday"], ["tuesday", "Tuesday"], ["wednesday", "Wednesday"], ["thursday", "Thursday"], ["friday", "Friday"]] : [["saturday", "شنبه"], ["sunday", "یکشنبه"], ["monday", "دوشنبه"], ["tuesday", "سه‌شنبه"], ["wednesday", "چهارشنبه"], ["thursday", "پنجشنبه"], ["friday", "جمعه"]];
+  const dayOptions = (selected) => weekendDays.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  const selectedHoliday = state.holidayDates[state.selectedHolidayIndex] || { year: state.holidayYear, month: state.holidayMonth, day: state.holidayDay };
+  const holidayRows = state.holidayDates.length ? state.holidayDates.map((holiday, index) => `<button type="button" class="holiday-entry${index === state.selectedHolidayIndex ? " selected" : ""}" data-holiday-select="${index}"><span>${faDigits(holiday.year)}/${faDigits(pad(holiday.month))}/${faDigits(pad(holiday.day))}</span><b>${english ? `Holiday ${index + 1}` : `تعطیلی ${faDigits(index + 1)}`}</b>${index === state.selectedHolidayIndex ? icons.check : ""}</button>`).join("") : `<p class="holiday-empty">${english ? "No holidays added yet." : "هنوز تعطیلی‌ای اضافه نشده است."}</p>`;
+  return `<div class="night-settings-root"><div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Day / Night Mode" : "حالت شب و روز"}</h3><p>${english ? "Schedule when the panel uses day or night behavior." : "زمان اجرای حالت روز و شب پنل را برنامه‌ریزی کنید."}</p></div><span class="status-chip ${state.dailyDayNightEnabled ? "green" : "amber"}">${statusLabel(state.dailyDayNightEnabled)}</span></div><div class="night-setting-sections"><section class="night-setting-section"><div class="night-section-head"><h4>${english ? "Daily Day/Night" : "روز و شب روزانه"}</h4><small>${english ? "Automatic day and night schedule" : "برنامه خودکار حالت روز و شب"}</small></div>${switchRow("daily", english ? "Status" : "وضعیت", english ? "Enable or disable the daily schedule." : "برنامه روزانه را فعال یا غیرفعال کنید.", state.dailyDayNightEnabled)}${state.dailyDayNightEnabled ? `<div class="night-control-panel${disabled ? " is-disabled" : ""}">${timeField("start", english ? "Start Time" : "ساعت شروع", state.nightStartHour, state.nightStartMinute)}${timeField("end", english ? "End Time" : "ساعت پایان", state.nightEndHour, state.nightEndMinute)}</div>` : ""}</section><section class="night-setting-section"><div class="night-section-head"><h4>${english ? "Weekend" : "آخر هفته"}</h4><small>${english ? "Apply the night schedule on selected days" : "اعمال برنامه شب در روزهای انتخاب‌شده"}</small></div>${switchRow("weekend", english ? "Status" : "وضعیت", english ? "Enable or disable weekend behavior." : "عملکرد آخر هفته را فعال یا غیرفعال کنید.", state.weekendEnabled)}${state.weekendEnabled ? `<div class="night-control-panel weekend-panel${disabled ? " is-disabled" : ""}"><div class="field-block"><label>${english ? "Day 1" : "روز ۱"}</label><select data-weekend-day="1"${disabledAttr}>${dayOptions(state.weekendDay1)}</select></div><div class="field-block"><label>${english ? "Day 2" : "روز ۲"}</label><select data-weekend-day="2"${disabledAttr}>${dayOptions(state.weekendDay2)}</select></div></div>` : ""}</section><section class="night-setting-section holiday-setting-section"><div class="night-section-head"><h4>${english ? "Holiday" : "تعطیلات"}</h4><small>${english ? "Apply the night schedule on selected holidays" : "اعمال برنامه شب در تعطیلات انتخاب‌شده"}</small></div>${switchRow("holiday", english ? "Status" : "وضعیت", english ? "Enable or disable holiday behavior." : "عملکرد تعطیلات را فعال یا غیرفعال کنید.", state.holidayEnabled)}${state.holidayEnabled ? `<div class="night-control-panel holiday-control-panel${disabled ? " is-disabled" : ""}"><div class="field-block holiday-date-field"><label for="holiday-date-input">${english ? "Date" : "تاریخ"}</label><div class="input-with-icon"><input id="holiday-date-input" type="text" readonly value="${faDigits(selectedHoliday.year)}/${faDigits(pad(selectedHoliday.month))}/${faDigits(pad(selectedHoliday.day))}" data-holiday-date-input aria-label="${english ? "Holiday date" : "تاریخ تعطیلی"}"${disabledAttr}>${icons.calendar}</div>${renderHolidayCalendar()}</div><div class="holiday-actions"><button type="button" class="btn-primary compact" data-holiday-add${disabledAttr}>+ ${english ? "Add" : "افزودن"}</button><button type="button" class="btn-secondary compact" data-holiday-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button></div><div class="holiday-list" role="listbox" aria-label="${english ? "Holiday dates" : "تاریخ‌های تعطیلات"}">${holidayRows}</div></div>` : ""}</section></div><div class="night-danger-actions"><button type="button" class="btn-danger compact" data-night-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button></div>${renderSettingActions()}</article></div></div>`;
+}
+
+function renderLoopCardSettingLegacy() {
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const card = state.loopCards.find((item) => item.id === state.selectedLoopCardId) || state.loopCards[0];
+  const devices = card?.devices || [];
+  const typeLabel = (key) => { const type = loopDeviceTypes.find((item) => item.key === key) || loopDeviceTypes[0]; return english ? type.en : type.fa; };
+  const categoryLabel = (key) => ({ relay: english ? "Relay" : "رله", control: english ? "Control" : "کنترل", other: english ? "Other" : "سایر", "cl-b-s-b": "CL-B-S-B", "cl-b-s-c": "CL-B-S-C" }[key] || key);
+  const selectOptions = (options, selected) => options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  const visibleDevices = state.loopDeviceFilter === "all" ? devices : devices.filter((device) => device.type === state.loopDeviceFilter);
+  const rows = visibleDevices.length ? visibleDevices.map((device) => `<div class="loop-device-row${state.selectedLoopDeviceId === device.id ? " selected" : ""}"><label class="loop-row-selector"><input type="radio" name="loop-device-select" data-loop-device-select="${device.id}" ${state.selectedLoopDeviceId === device.id ? "checked" : ""}${disabledAttr}><span></span></label><div class="loop-number">${faDigits(pad(device.number))}</div><select data-loop-device-field="enabled" data-loop-device-id="${device.id}" aria-label="${english ? "Status" : "وضعیت"}"${disabledAttr}>${selectOptions([["enabled", english ? "Enable" : "فعال"], ["disabled", english ? "Disable" : "غیرفعال"]], device.enabled ? "enabled" : "disabled")}</select><select data-loop-device-field="style" data-loop-device-id="${device.id}" aria-label="${english ? "Wiring style" : "نوع سیم‌کشی"}"${disabledAttr}>${selectOptions([["class-b", "Class B"], ["class-a", "Class A"]], device.style)}</select><select data-loop-device-field="type" data-loop-device-id="${device.id}" aria-label="${english ? "Device" : "دیوایس"}"${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}" ${device.type === type.key ? "selected" : ""}>${english ? type.en : type.fa}</option>`).join("")}</select><select data-loop-device-field="category" data-loop-device-id="${device.id}" aria-label="${english ? "Category" : "دسته‌بندی"}"${disabledAttr}>${selectOptions(loopCategories.map((item) => [item, categoryLabel(item)]), device.category)}</select><input type="text" value="${device.ip}" data-loop-device-field="ip" data-loop-device-id="${device.id}" aria-label="IP"${disabledAttr}><select data-loop-device-field="deactivation" data-loop-device-id="${device.id}" aria-label="${english ? "Deactivation" : "غیرفعال‌سازی"}"${disabledAttr}>${selectOptions([["no", english ? "No" : "خیر"], ["yes", english ? "Yes" : "بله"]], device.deactivation ? "yes" : "no")}</select><select data-loop-device-field="sensitivity" data-loop-device-id="${device.id}" aria-label="${english ? "Sensitivity" : "حساسیت"}"${disabledAttr}>${selectOptions([["low", english ? "Low" : "کم"], ["medium", english ? "Medium" : "متوسط"], ["high", english ? "High" : "زیاد"]], device.sensitivity)}</select><select data-loop-device-field="nightMode" data-loop-device-id="${device.id}" aria-label="${english ? "Night mode" : "حالت کارکرد"}"${disabledAttr}>${selectOptions([["day", english ? "Day" : "روز"], ["night", english ? "Night" : "شب"]], device.nightMode)}</select><input type="text" value="${device.location}" data-loop-device-field="location" data-loop-device-id="${device.id}" aria-label="${english ? "Location" : "آدرس"}"${disabledAttr}></div>`).join("") : `<div class="loop-empty-state">${english ? "No devices match the selected filter." : "دیوایسی مطابق فیلتر انتخاب‌شده پیدا نشد."}</div>`;
+  const cardChoices = state.loopCards.map((loopCard) => `<label class="loop-card-choice${loopCard.id === card?.id ? " selected" : ""}"><input type="checkbox" data-loop-card-select="${loopCard.id}" ${loopCard.id === card?.id ? "checked" : ""}${disabledAttr}><span><b>${loopCard.label}</b><small>${faDigits(loopCard.devices.length)} ${english ? "devices" : "دیوایس"}</small></span>${loopCard.id === card?.id ? icons.check : ""}</label>`).join("");
+  const filterOptions = [["all", english ? "All devices" : "همه دیوایس‌ها"], ...loopDeviceTypes.map((type) => [type.key, english ? type.en : type.fa])];
+  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage the devices installed on it." : "یک کارت لوپ را انتخاب کنید و دیوایس‌های نصب‌شده روی آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button><select class="loop-add-select" data-loop-new-type aria-label="${english ? "New device type" : "نوع دیوایس جدید"}"${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${english ? type.en : type.fa}</option>`).join("")}</select><button type="button" class="btn-primary compact" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Visible devices" : "دیوایس‌های قابل نمایش"}: <b>${faDigits(visibleDevices.length)}</b></span><span>${english ? "Total devices" : "مجموع دیوایس‌ها"}: <b>${faDigits(devices.length)}</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Number Device" : "شماره دیوایس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>IP</span><span>${english ? "Deactivation" : "غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "آدرس"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-save${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button></div>${renderSettingActions()}</article>`;
 }
 
 function renderLoopCardSetting() {
-  const devices = [["۰۱", "دتکتور دود", "Smoke Detector", "فعال"], ["۰۲", "شستی اعلام حریق", "Manual Call Point", "فعال"], ["۰۳", "آژیر / خروجی", "Sounder / Output", "غیرفعال"], ["۰۴", "ماژول ورودی", "Input Module", "فعال"]];
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>دیوایس‌های کارت لوپ</h3><p>دیوایس‌های شناسایی‌شده در Loop Card 1</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact">${icons.refresh}شناسایی</button><button type="button" class="btn-primary compact">+ افزودن دیوایس</button></div></div><div class="device-filters"><span class="filter-active">همه</span><span>دتکتور</span><span>ماژول</span><span>خروجی</span></div><div class="device-table"><div class="device-table-head"><span>شماره</span><span>نوع دیوایس</span><span>وضعیت</span><span>عملیات</span></div>${devices.map(([number, name, en, status]) => `<div class="device-table-row"><b>${number}</b><span><strong>${name}</strong><small>${en}</small></span><em class="device-status ${status === "فعال" ? "on" : "off"}"><i></i>${status}</em><button type="button" class="row-more">•••</button></div>`).join("")}</div>${renderSettingActions()}</article>`;
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const card = state.loopCards.find((item) => item.id === state.selectedLoopCardId) || state.loopCards[0];
+  const devices = card?.devices || [];
+  const deviceByAddress = new Map(devices.map((device) => [Number(device.number), device]));
+  const typeLabel = (key) => { const type = loopDeviceTypes.find((item) => item.key === key) || loopDeviceTypes[0]; return english ? type.en : type.fa; };
+  const categoryLabel = (key) => ({ relay: english ? "Relay" : "رله", control: english ? "Control" : "کنترل", other: english ? "Other" : "سایر", "cl-b-s-b": "CL-B-S-B", "cl-b-s-c": "CL-B-S-C" }[key] || key);
+  const selectOptions = (options, selected) => options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  const field = (device, name, content) => name === "location" ? `<input type="text" value="${content}" data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>` : `<select data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>${content}</select>`;
+  const renderDeviceRow = (device) => `<div class="loop-device-row${state.selectedLoopDeviceId === device.id ? " selected" : ""}"><label class="loop-row-selector"><input type="radio" name="loop-device-select" data-loop-device-select="${device.id}" ${state.selectedLoopDeviceId === device.id ? "checked" : ""}${disabledAttr}><span></span></label><div class="loop-number">${faDigits(device.number)}</div>${field(device, "enabled", selectOptions([["enabled", english ? "Enable" : "فعال"], ["disabled", english ? "Disable" : "غیرفعال"]], device.enabled ? "enabled" : "disabled"))}${field(device, "style", selectOptions([["class-b", "Class B"], ["class-a", "Class A"]], device.style))}${field(device, "type", loopDeviceTypes.map((type) => [type.key, english ? type.en : type.fa]).map(([value, label]) => `<option value="${value}" ${device.type === value ? "selected" : ""}>${label}</option>`).join(""))}${field(device, "category", selectOptions(loopCategories.map((item) => [item, categoryLabel(item)]), device.category))}${field(device, "inputType", selectOptions([["alarm", "Alarm"], ["supervisory", "Supervisory"]], device.inputType || "alarm"))}${field(device, "deactivation", selectOptions([["silence", english ? "Silence" : "سایلنس"], ["reset", english ? "Reset" : "ریست"], ["auto-reset", english ? "Auto Reset" : "اتو ریست"]], device.deactivation || "silence"))}${field(device, "sensitivity", selectOptions([["low", english ? "Low" : "کم"], ["medium", english ? "Medium" : "متوسط"], ["high", english ? "High" : "زیاد"]], device.sensitivity))}${field(device, "nightMode", selectOptions([["day", english ? "Day" : "روز"], ["night", english ? "Night" : "شب"]], device.nightMode))}${field(device, "location", device.location || "")}</div>`;
+  const renderEmptyRow = (address) => `<div class="loop-device-row loop-empty-row"><span></span><button type="button" class="loop-empty-address" data-loop-empty-address="${address}"${disabledAttr}>${faDigits(address)}</button><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>${english ? "Empty slot" : "خانه خالی"}</span></div>`;
+  const renderFilteredRow = (device) => `<div class="loop-device-row loop-filtered-row"><span></span><span class="loop-number">${faDigits(device.number)}</span><span class="loop-filtered-label">${english ? "Filtered" : "فیلتر شده"}</span><span>—</span><span>${typeLabel(device.type)}</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span></div>`;
+  const rows = Array.from({ length: 254 }, (_, index) => {
+    const address = index + 1;
+    const device = deviceByAddress.get(address);
+    if (!device) return renderEmptyRow(address);
+    if (state.loopDeviceFilter !== "all" && device.type !== state.loopDeviceFilter) return renderFilteredRow(device);
+    return renderDeviceRow(device);
+  }).join("");
+  const countCards = loopDeviceTypes.map((type) => `<div class="loop-type-count"><span>${typeLabel(type.key)}</span><b>${faDigits(devices.filter((device) => device.type === type.key).length)}</b></div>`).join("");
+  const filterOptions = [["all", english ? "All devices" : "همه دیوایس‌ها"], ...loopDeviceTypes.map((type) => [type.key, typeLabel(type.key)])];
+  const cardChoices = state.loopCards.map((loopCard) => `<label class="loop-card-choice${loopCard.id === card?.id ? " selected" : ""}"><input type="checkbox" data-loop-card-select="${loopCard.id}" ${loopCard.id === card?.id ? "checked" : ""}${disabledAttr}><span><b>${loopCard.label}</b><small>${faDigits(loopCard.devices.length)} ${english ? "devices" : "دیوایس"}</small></span>${loopCard.id === card?.id ? icons.check : ""}</label>`).join("");
+  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage its 1–254 device addresses." : "یک کارت لوپ را انتخاب کنید و آدرس‌های ۱ تا ۲۵۴ دیوایس آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-type-counts">${countCards}<div class="loop-type-count total"><span>${english ? "Total" : "مجموع"}</span><b>${faDigits(devices.length)}</b></div></div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-add-panel"><div class="loop-add-field"><label for="loop-address-input">${english ? "Device Address" : "آدرس دیوایس"}</label><input id="loop-address-input" type="number" min="1" max="254" step="1" inputmode="numeric" placeholder="${english ? "1–254 or automatic" : "۱ تا ۲۵۴ یا انتخاب خودکار"}" data-loop-address-input${disabledAttr}></div><div class="loop-add-field"><label>${english ? "Device Type" : "نوع دیوایس"}</label><select class="loop-add-select" data-loop-new-type${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${typeLabel(type.key)}</option>`).join("")}</select></div><button type="button" class="btn-primary compact loop-add-button" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><small class="loop-add-hint">${english ? "Click an empty address below to fill it automatically." : "برای تکمیل خودکار، روی یکی از آدرس‌های خالی زیر کلیک کنید."}</small><small class="loop-add-error">${state.loopAddError || ""}</small></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Empty addresses" : "آدرس‌های خالی"}: <b>${faDigits(254 - devices.length)}</b></span><span>${english ? "Address range" : "محدوده آدرس"}: <b dir="ltr">1–254</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Address" : "آدرس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>${english ? "Input Type" : "نوع ورودی"}</span><span>${english ? "Deactivation" : "عملکرد غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "موقعیت"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button><button type="button" class="btn-primary compact" data-loop-save${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button></div></article>`;
+}
+
+function selectedLoopCard() {
+  return state.loopCards.find((card) => card.id === state.selectedLoopCardId) || state.loopCards[0];
+}
+
+function redrawLoopCardSetting() {
+  const root = document.querySelector(".loop-card-setting");
+  if (!root) return;
+  root.outerHTML = renderLoopCardSetting();
+  bindLoopCardEvents();
+}
+
+function readLoopCardDevices(card) {
+  card.devices = loopDeviceTypes.map((type, index) => makeLoopDevice(card.id, index + 1, type.key, {
+    enabled: index !== 4,
+    style: index % 3 === 0 ? "class-a" : "class-b",
+    category: type.category,
+    ip: `001.${String(index + 1).padStart(3, "0")}`,
+    inputType: index % 3 === 0 ? "supervisory" : "alarm",
+    deactivation: index === 4 ? "auto-reset" : index === 5 ? "reset" : "silence",
+    sensitivity: index % 3 === 0 ? "high" : index % 3 === 1 ? "medium" : "low",
+    nightMode: index % 2 === 0 ? "day" : "night",
+    location: index % 2 === 0 ? "طبقه ۱ / راهروی مرکزی" : "طبقه ۲ / اتاق کنترل",
+  }));
+}
+
+function bindLoopCardEventsLegacy() {
+  const root = document.querySelector(".loop-card-setting");
+  if (!root) return;
+  const connected = Boolean(state.connectedPanelId);
+  root.querySelectorAll("[data-loop-card-select]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    if (!input.checked) { input.checked = true; return; }
+    state.selectedLoopCardId = input.dataset.loopCardSelect;
+    state.selectedLoopDeviceId = null;
+    state.loopDeviceFilter = "all";
+    redrawLoopCardSetting();
+  }));
+  root.querySelectorAll("[data-loop-device-select]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    state.selectedLoopDeviceId = input.dataset.loopDeviceSelect;
+    root.querySelectorAll(".loop-device-row").forEach((row) => row.classList.toggle("selected", row.querySelector("[data-loop-device-select]")?.checked));
+  }));
+  const updateDeviceField = (control) => {
+    const card = selectedLoopCard();
+    const device = card?.devices.find((item) => item.id === control.dataset.loopDeviceId);
+    if (!device) return;
+    const field = control.dataset.loopDeviceField;
+    if (field === "enabled") device.enabled = control.value === "enabled";
+    else if (field === "deactivation") device.deactivation = control.value === "yes";
+    else device[field] = control.value;
+    if (field === "type") {
+      const type = loopDeviceTypes.find((item) => item.key === device.type);
+      if (type) {
+        device.category = type.category;
+        const categoryControl = root.querySelector(`[data-loop-device-field="category"][data-loop-device-id="${device.id}"]`);
+        if (categoryControl) categoryControl.value = type.category;
+      }
+    }
+  };
+  root.querySelectorAll("[data-loop-device-field]").forEach((control) => {
+    control.addEventListener("change", () => { if (connected) updateDeviceField(control); });
+    if (control.tagName === "INPUT") control.addEventListener("input", () => { if (connected) updateDeviceField(control); });
+  });
+  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => { if (!connected) return; state.loopDeviceFilter = event.target.value; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => { if (!connected) return; state.loopDeviceFilter = "all"; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-read]")?.addEventListener("click", () => {
+    if (!connected) return;
+    const card = selectedLoopCard();
+    if (!card) return;
+    readLoopCardDevices(card);
+    state.loopDeviceFilter = "all";
+    state.selectedLoopDeviceId = card.devices[0]?.id || null;
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "Devices were read from the loop card." : "دیوایس‌های کارت لوپ شناسایی شدند.");
+  });
+  root.querySelector("[data-loop-add]")?.addEventListener("click", () => {
+    if (!connected) return;
+    const card = selectedLoopCard();
+    const typeKey = root.querySelector("[data-loop-new-type]")?.value || loopDeviceTypes[0].key;
+    const nextNumber = (card?.devices.reduce((max, device) => Math.max(max, Number(device.number) || 0), 0) || 0) + 1;
+    const device = makeLoopDevice(card.id, nextNumber, typeKey, { location: "آدرس جدید دیوایس" });
+    card.devices.push(device);
+    state.loopDeviceFilter = "all";
+    state.selectedLoopDeviceId = device.id;
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "New device added." : "دیوایس جدید اضافه شد.");
+  });
+  root.querySelector("[data-loop-delete]")?.addEventListener("click", () => {
+    if (!connected || !state.selectedLoopDeviceId) return;
+    const card = selectedLoopCard();
+    const index = card.devices.findIndex((device) => device.id === state.selectedLoopDeviceId);
+    if (index < 0) return;
+    card.devices.splice(index, 1);
+    state.selectedLoopDeviceId = card.devices[index]?.id || card.devices[index - 1]?.id || null;
+    redrawLoopCardSetting();
+  });
+  root.querySelector("[data-loop-delete-all]")?.addEventListener("click", () => {
+    if (!connected) return;
+    const message = state.language === "en" ? "Delete all devices from this loop card?" : "همه دیوایس‌های این کارت لوپ حذف شوند؟";
+    if (!window.confirm(message)) return;
+    const card = selectedLoopCard();
+    card.devices = [];
+    state.selectedLoopDeviceId = null;
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "All loop card devices were deleted." : "تمام دیوایس‌های کارت لوپ حذف شدند.", "info");
+  });
+  root.querySelector("[data-loop-save]")?.addEventListener("click", () => {
+    if (!connected) return;
+    showToast(state.language === "en" ? "Loop card changes were saved." : "تغییرات کارت لوپ ذخیره شد.");
+  });
+  root.querySelector("[data-loop-print]")?.addEventListener("click", () => {
+    if (connected) window.print();
+  });
+}
+
+function setLoopAddError(message) {
+  state.loopAddError = message;
+  const error = document.querySelector(".loop-add-error");
+  if (error) error.textContent = message;
+}
+
+function bindLoopCardEvents() {
+  const root = document.querySelector(".loop-card-setting");
+  if (!root) return;
+  const connected = Boolean(state.connectedPanelId);
+  const card = selectedLoopCard();
+  root.querySelectorAll("[data-loop-card-select]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    if (!input.checked) { input.checked = true; return; }
+    state.selectedLoopCardId = input.dataset.loopCardSelect;
+    state.selectedLoopDeviceId = null;
+    state.loopDeviceFilter = "all";
+    state.loopAddError = "";
+    redrawLoopCardSetting();
+  }));
+  root.querySelectorAll("[data-loop-device-select]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    state.selectedLoopDeviceId = input.dataset.loopDeviceSelect;
+    root.querySelectorAll(".loop-device-row").forEach((row) => row.classList.toggle("selected", row.querySelector("[data-loop-device-select]")?.checked));
+  }));
+  const updateDeviceField = (control) => {
+    const device = card?.devices.find((item) => item.id === control.dataset.loopDeviceId);
+    if (!device) return;
+    device[control.dataset.loopDeviceField] = control.value;
+    if (control.dataset.loopDeviceField === "enabled") device.enabled = control.value === "enabled";
+    if (control.dataset.loopDeviceField === "type") {
+      const type = loopDeviceTypes.find((item) => item.key === device.type);
+      if (type) {
+        device.category = type.category;
+        const categoryControl = root.querySelector(`[data-loop-device-field="category"][data-loop-device-id="${device.id}"]`);
+        if (categoryControl) categoryControl.value = type.category;
+      }
+    }
+  };
+  root.querySelectorAll("[data-loop-device-field]").forEach((control) => {
+    control.addEventListener("change", () => { if (connected) updateDeviceField(control); });
+    if (control.tagName === "INPUT") control.addEventListener("input", () => { if (connected) updateDeviceField(control); });
+  });
+  root.querySelector("[data-loop-address-input]")?.addEventListener("input", () => { if (state.loopAddError) setLoopAddError(""); });
+  root.querySelectorAll("[data-loop-empty-address]").forEach((button) => button.addEventListener("click", () => {
+    if (!connected) return;
+    const input = root.querySelector("[data-loop-address-input]");
+    if (!input) return;
+    input.value = button.dataset.loopEmptyAddress;
+    setLoopAddError("");
+    input.focus();
+  }));
+  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => { if (!connected) return; state.loopDeviceFilter = event.target.value; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => { if (!connected) return; state.loopDeviceFilter = "all"; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-read]")?.addEventListener("click", () => {
+    if (!connected || !card) return;
+    readLoopCardDevices(card);
+    state.loopDeviceFilter = "all";
+    state.selectedLoopDeviceId = card.devices[0]?.id || null;
+    state.loopAddError = "";
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "Devices were read from the loop card." : "دیوایس‌های کارت لوپ شناسایی شدند.");
+  });
+  root.querySelector("[data-loop-add]")?.addEventListener("click", () => {
+    if (!connected || !card) return;
+    const input = root.querySelector("[data-loop-address-input]");
+    const rawAddress = input?.value.trim() || "";
+    const occupied = new Set(card.devices.map((device) => Number(device.number)));
+    let address;
+    if (!rawAddress) address = Array.from({ length: 254 }, (_, index) => index + 1).find((candidate) => !occupied.has(candidate));
+    else if (!/^\d+$/.test(rawAddress)) {
+      setLoopAddError(state.language === "en" ? "Device address must be a whole number from 1 to 254." : "آدرس دیوایس باید یک عدد صحیح بین ۱ تا ۲۵۴ باشد.");
+      return;
+    } else address = Number(rawAddress);
+    if (!rawAddress && !address) {
+      setLoopAddError(state.language === "en" ? "All 254 device addresses are already occupied." : "هر ۲۵۴ آدرس دیوایس قبلاً استفاده شده‌اند.");
+      return;
+    }
+    if (!address || address < 1 || address > 254) {
+      setLoopAddError(state.language === "en" ? "Device address must be between 1 and 254." : "آدرس دیوایس باید بین ۱ تا ۲۵۴ باشد.");
+      return;
+    }
+    if (occupied.has(address)) {
+      setLoopAddError(state.language === "en" ? `Address ${address} is already assigned to a device.` : `آدرس ${faDigits(address)} قبلاً به یک دیوایس اختصاص داده شده است.`);
+      return;
+    }
+    const typeKey = root.querySelector("[data-loop-new-type]")?.value || loopDeviceTypes[0].key;
+    const device = makeLoopDevice(card.id, address, typeKey, { location: "آدرس جدید دیوایس" });
+    card.devices.push(device);
+    state.loopDeviceFilter = "all";
+    state.selectedLoopDeviceId = device.id;
+    state.loopAddError = "";
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "New device added." : "دیوایس جدید اضافه شد.");
+  });
+  root.querySelector("[data-loop-delete]")?.addEventListener("click", () => {
+    if (!connected || !card || !state.selectedLoopDeviceId) return;
+    const index = card.devices.findIndex((device) => device.id === state.selectedLoopDeviceId);
+    if (index < 0) return;
+    card.devices.splice(index, 1);
+    state.selectedLoopDeviceId = card.devices[index]?.id || card.devices[index - 1]?.id || null;
+    redrawLoopCardSetting();
+  });
+  root.querySelector("[data-loop-delete-all]")?.addEventListener("click", () => {
+    if (!connected || !card) return;
+    const message = state.language === "en" ? "Delete all devices from this loop card?" : "همه دیوایس‌های این کارت لوپ حذف شوند؟";
+    if (!window.confirm(message)) return;
+    card.devices = [];
+    state.selectedLoopDeviceId = null;
+    redrawLoopCardSetting();
+    showToast(state.language === "en" ? "All loop card devices were deleted." : "تمام دیوایس‌های کارت لوپ حذف شدند.", "info");
+  });
+  root.querySelector("[data-loop-save]")?.addEventListener("click", () => {
+    if (connected) showToast(state.language === "en" ? "Loop card changes were saved." : "تغییرات کارت لوپ ذخیره شد.");
+  });
+  root.querySelector("[data-loop-print]")?.addEventListener("click", () => { if (connected) window.print(); });
+}
+
+function groupDeviceKey(loopId, deviceId) { return `${loopId}:${deviceId}`; }
+function findGroupDevice(ref) {
+  const card = state.loopCards.find((item) => item.id === ref?.loopId);
+  return { card, device: card?.devices.find((item) => item.id === ref?.deviceId) };
+}
+function groupDeviceLabel(ref, english) {
+  const { card, device } = findGroupDevice(ref);
+  if (!device) return english ? "Unknown device" : "دیوایس ناشناخته";
+  const type = loopDeviceTypes.find((item) => item.key === device.type) || loopDeviceTypes[0];
+  return `${card?.label || ref.loopId} · ${english ? type.en : type.fa} · ${faDigits(device.number)}`;
+}
+function groupNumberOptions(selected, max = 64) {
+  return Array.from({ length: max }, (_, index) => index + 1).map((number) => `<option value="${number}" ${Number(selected) === number ? "selected" : ""}>${faDigits(number)}</option>`).join("");
+}
+function groupLoopOptions(selected) {
+  return state.loopCards.map((card) => `<option value="${card.id}" ${card.id === selected ? "selected" : ""}>${card.label}</option>`).join("");
+}
+function isOutputGroupDevice(device) { return device?.type === "sounder" || device?.type === "io" || device?.category === "relay"; }
+function getIoGroup() {
+  const key = `${state.ioInputGroupNumber}-${state.ioOutputGroupNumber}`;
+  if (!state.ioRelations[key]) state.ioRelations[key] = { activeCount: 1, outputActiveFor: "fire", delay: 0, status: true };
+  return state.ioRelations[key];
+}
+function renderGroupListItem(ref, english, selected = false) {
+  const { card, device } = findGroupDevice(ref);
+  if (!device) return "";
+  const type = loopDeviceTypes.find((item) => item.key === device.type) || loopDeviceTypes[0];
+  return `<button type="button" class="group-device-entry${selected ? " selected" : ""}" data-group-selected-key="${groupDeviceKey(ref.loopId, ref.deviceId)}"><span class="group-device-address">${faDigits(device.number)}</span><span><b>${english ? type.en : type.fa}</b><small>${card?.label || ref.loopId} · ${device.location || "—"}</small></span>${selected ? icons.check : icons.chevronLeft}</button>`;
+}
+
+function renderGroupSettingZone() {
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const title = english ? "Group" : "گروه‌بندی";
+  const description = english ? "Create and manage zone, input, and output device groups." : "گروه‌بندی زون و دیوایس‌های ورودی و خروجی را مدیریت کنید.";
+  const selectField = (label, attr, options) => `<label class="group-field"><span>${label}</span><select ${attr}${disabledAttr}>${options}</select></label>`;
+  const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab${state.groupTab === "zone" ? " active" : ""}" data-group-tab="zone" role="tab" aria-selected="${state.groupTab === "zone"}">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab${state.groupTab === "io" ? " active" : ""}" data-group-tab="io" role="tab" aria-selected="${state.groupTab === "io"}">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
+  const toolbar = (kind) => `<div class="group-toolbar"><button type="button" class="btn-secondary compact" data-group-read-all="${kind}"${disabledAttr}>${icons.refresh}${english ? "Read All Groups" : "خواندن همه گروه‌ها"}</button><span class="group-connection-note ${disabled ? "offline" : "online"}">${disabled ? (english ? "Connect a panel to manage groups" : "برای مدیریت گروه‌ها پنل را متصل کنید") : (english ? "Panel connection active" : "اتصال پنل فعال است")}</span></div>`;
+  const actions = (kind, includePrint = false) => `<div class="group-actions"><button type="button" class="btn-danger compact" data-group-delete="${kind}"${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="${kind}"${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span></span>${includePrint ? `<button type="button" class="btn-secondary compact" data-group-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button>` : ""}<button type="button" class="btn-secondary compact" data-group-save="${kind}"${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button><button type="button" class="btn-primary compact" data-group-update="${kind}"${disabledAttr}>${icons.refresh}${english ? "Update All" : "به‌روزرسانی همه"}</button></div>`;
+
+  if (state.groupTab === "zone") {
+    const group = state.zoneGroups[state.zoneGroupNumber] || [];
+    const selectedLoop = state.loopCards.find((card) => card.id === state.zoneLoopCardId) || state.loopCards[0];
+    const groupedKeys = new Set(group.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+    const inputDevices = (selectedLoop?.devices || []).filter((device) => !groupedKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
+    const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
+    const groupedList = group.length ? group.map((ref) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Click a device to add it to this group." : "برای افزودن دیوایس به گروه روی آن کلیک کنید."}</div>`;
+    return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("zone")}<div class="group-form-grid">${selectField(english ? "Group Number" : "شماره گروه", "data-zone-group-number", groupNumberOptions(state.zoneGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-zone-loop", groupLoopOptions(state.zoneLoopCardId))}<label class="group-switch-field"><span><b>${english ? "Pre Alarm" : "پیش هشدار"}</b><small>${english ? "Enable pre-alarm for this zone group." : "پیش‌هشدار این گروه زون را فعال کنید."}</small></span><span class="group-switch-wrap"><em>${state.zonePreAlarm[state.zoneGroupNumber] ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-zone-prealarm ${state.zonePreAlarm[state.zoneGroupNumber] ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-device-columns zone-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click a device to add it to the selected group." : "برای افزودن به گروه، دیوایس را انتخاب کنید."}</small></div><b>${faDigits(inputDevices.length)}</b></div><div class="group-device-list">${inputList}</div></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Zone Grouped Devices List" : "لیست دیوایس‌های گروه‌بندی‌شده"}</h4><small>${english ? `Group ${state.zoneGroupNumber}` : `گروه ${faDigits(state.zoneGroupNumber)}`}</small></div><b>${faDigits(group.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div>${actions("zone")}</article>`;
+  }
+
+  const group = getIoGroup();
+  const selectedLoop = state.loopCards.find((card) => card.id === state.ioLoopCardId) || state.loopCards[0];
+  const inputRefs = group.inputs || [];
+  const outputRefs = group.outputs || [];
+  const usedInputs = new Set(inputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const usedOutputs = new Set(outputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const availableInputs = (selectedLoop?.devices || []).filter((device) => !isOutputGroupDevice(device) && !usedInputs.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !usedOutputs.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const availableList = (items, kind) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${kind}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available." : "دیوایسی برای انتخاب وجود ندارد."}</div>`;
+  const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
+  const groupedList = grouped.length ? grouped.map(({ ref }) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists." : "دیوایس‌ها را از لیست‌های ورودی و خروجی اضافه کنید."}</div>`;
+  const activeMax = inputRefs.length;
+  const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
+  return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("io")}<div class="group-form-grid io-group-selects">${selectField(english ? "Input Group Number" : "شماره گروه ورودی", "data-io-input-group", groupNumberOptions(state.ioInputGroupNumber))}${selectField(english ? "Output Group Number" : "شماره گروه خروجی", "data-io-output-group", groupNumberOptions(state.ioOutputGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-io-loop", groupLoopOptions(state.ioLoopCardId))}</div><div class="group-device-columns io-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click or move all available inputs." : "انتخاب تکی یا گروهی دیوایس‌های ورودی"}</small></div><b>${faDigits(availableInputs.length)}</b></div><div class="group-device-list">${availableList(availableInputs, "input")}</div><button type="button" class="group-transfer-button" data-io-add-all="input"${disabledAttr}>&lt;&lt; ${english ? "Add all inputs" : "افزودن همه ورودی‌ها"}</button></section><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Output Devices" : "دیوایس‌های خروجی"}</h4><small>${english ? "Click or move all available outputs." : "انتخاب تکی یا گروهی دیوایس‌های خروجی"}</small></div><b>${faDigits(availableOutputs.length)}</b></div><div class="group-device-list">${availableList(availableOutputs, "output")}</div><button type="button" class="group-transfer-button" data-io-add-all="output"${disabledAttr}>&lt;&lt; ${english ? "Add all outputs" : "افزودن همه خروجی‌ها"}</button></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Input / Output Grouping" : "گروهبندی ورودی / خروجی"}</h4><small>${english ? `${inputRefs.length} inputs · ${outputRefs.length} outputs` : `${faDigits(inputRefs.length)} ورودی · ${faDigits(outputRefs.length)} خروجی`}</small></div><b>${faDigits(grouped.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div><div class="group-form-grid group-parameters"><label class="group-field"><span>${english ? "Active Count" : "تعداد فعال"}</span><input type="number" min="${activeMax ? 1 : 0}" max="${Math.max(activeMax, 0)}" value="${Math.min(group.activeCount || (activeMax ? 1 : 0), activeMax)}" data-io-active-count${disabledAttr}></label><label class="group-field"><span>${english ? "Output Active for" : "فعال‌سازی خروجی برای"}</span><select data-io-output-active${disabledAttr}>${outputOptions.map(([value, label]) => `<option value="${value}" ${group.outputActiveFor === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="group-field"><span>${english ? "Delay (0–999 Sec)" : "تاخیر (۰ تا ۹۹۹ ثانیه)"}</span><input type="number" min="0" max="999" value="${group.delay ?? 0}" data-io-delay${disabledAttr}></label><label class="group-switch-field"><span><b>${english ? "Status" : "وضعیت"}</b><small>${english ? "Enable or disable this grouping." : "این گروه‌بندی را فعال یا غیرفعال کنید."}</small></span><span class="group-switch-wrap"><em>${group.status ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-io-status ${group.status ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-preview-row"><button type="button" class="btn-secondary compact" data-io-preview${disabledAttr}>${icons.dashboard}${english ? "Pre View" : "پیش نمایش"}</button>${state.groupPreviewOpen ? `<div class="group-preview"><b>${english ? "Input & Output Group Preview" : "پیش‌نمایش گروه ورودی و خروجی"}</b><span>${grouped.length ? grouped.map(({ ref }) => groupDeviceLabel(ref, english)).join(" · ") : (english ? "No devices selected" : "دیوایسی انتخاب نشده است")}</span></div>` : ""}</div>${actions("io", true)}</article>`;
+}
+
+function renderGroupSettingLegacy() {
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گروه‌بندی ورودی و خروجی</h3><p>دیوایس‌ها را برای اجرای سناریوهای مشترک گروه‌بندی کنید.</p></div><button type="button" class="btn-primary compact">+ گروه جدید</button></div><div class="group-list"><div><span class="group-color teal">۱</span><div><b>گروه حریق طبقات</b><small>۱۲ دیوایس · خروجی آژیر · تأخیر ۰ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color amber">۲</span><div><b>گروه ورودی‌های اضطراری</b><small>۴ دیوایس · خروجی رله ۲ · تأخیر ۵ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color sky">۳</span><div><b>گروه تجهیزات موتورخانه</b><small>۸ دیوایس · وضعیت نظارتی</small></div><em>پیش‌نویس</em>${icons.chevronLeft}</div></div></article>`;
+}
+
+function renderInputOutputGroupSettingLegacy() {
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const actions = (kind, includePrint = false) => `<div class="group-actions"><button type="button" class="btn-danger compact" data-group-delete="${kind}"${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="${kind}"${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span></span>${includePrint ? `<button type="button" class="btn-secondary compact" data-group-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button>` : ""}<button type="button" class="btn-secondary compact" data-group-save="${kind}"${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button><button type="button" class="btn-primary compact" data-group-update="${kind}"${disabledAttr}>${icons.refresh}${english ? "Update All" : "به‌روزرسانی همه"}</button></div>`;
+  const inputRefs = state.ioInputGroups[state.ioInputGroupNumber] || [];
+  const outputRefs = state.ioOutputGroups[state.ioOutputGroupNumber] || [];
+  const relation = getIoGroup();
+  const selectedLoop = state.loopCards.find((card) => card.id === state.ioLoopCardId) || state.loopCards[0];
+  const inputKeys = new Set(inputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const outputKeys = new Set(outputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const availableInputs = (selectedLoop?.devices || []).filter((device) => !isOutputGroupDevice(device) && !inputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !outputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
+  const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab" data-group-tab="zone" role="tab">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab active" data-group-tab="io" role="tab" aria-selected="true">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
+  const optionList = (items) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این گروه قابل انتخاب نیست."}</div>`;
+  const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the input and output lists." : "دیوایس‌ها را از دو لیست ورودی و خروجی اضافه کنید."}</div>`;
+  const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
+  const selectField = (label, attr, options) => `<label class="group-field"><span>${label}</span><select ${attr}${disabledAttr}>${options}</select></label>`;
+  const relationSummary = english ? `Input Group ${state.ioInputGroupNumber} activates Output Group ${state.ioOutputGroupNumber} when ${outputOptions.find(([value]) => value === relation.outputActiveFor)?.[1] || "Fire"} occurs.` : `گروه ورودی ${faDigits(state.ioInputGroupNumber)} هنگام ${outputOptions.find(([value]) => value === relation.outputActiveFor)?.[1] || "حریق"}، گروه خروجی ${faDigits(state.ioOutputGroupNumber)} را فعال می‌کند.`;
+  return `<article class="sub-card group-setting io-group-setting"><div class="sub-card-head"><div><h3>${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</h3><p>${english ? "Build input and output groups independently, then link them with a clear activation rule." : "گروه‌های ورودی و خروجی را جداگانه بسازید و سپس با یک شرط مشخص به هم مرتبط کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}<div class="group-toolbar"><button type="button" class="btn-secondary compact" data-group-read-all="io"${disabledAttr}>${icons.refresh}${english ? "Read All Groups" : "خواندن همه گروه‌ها"}</button><span class="group-connection-note ${disabled ? "offline" : "online"}">${disabled ? (english ? "Connect a panel to manage groups" : "برای مدیریت گروه‌ها پنل را متصل کنید") : (english ? "Panel connection active" : "اتصال پنل فعال است")}</span></div><section class="group-relation-card"><div class="group-relation-head"><div><h4>${english ? "Input / Output Group Relation" : "ارتباط گروه ورودی و خروجی"}</h4><small>${english ? "Choose the group numbers first, then configure the rule that connects them." : "ابتدا شماره گروه‌ها را انتخاب کنید، سپس شرط ارتباط آن‌ها را تعیین کنید."}</small></div><span class="group-relation-badge">${icons.chevronLeft}</span></div><div class="group-form-grid io-group-selects">${selectField(english ? "Input Group Number (1–96)" : "شماره گروه ورودی (۱ تا ۹۶)", "data-io-input-group", groupNumberOptions(state.ioInputGroupNumber, 96))}${selectField(english ? "Output Group Number (1–96)" : "شماره گروه خروجی (۱ تا ۹۶)", "data-io-output-group", groupNumberOptions(state.ioOutputGroupNumber, 96))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-io-loop", groupLoopOptions(state.ioLoopCardId))}</div><div class="group-relation-summary">${icons.check}<span>${relationSummary}</span></div></section><div class="group-device-columns io-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? `Devices assigned to input group ${state.ioInputGroupNumber}` : `دیوایس‌های گروه ورودی ${faDigits(state.ioInputGroupNumber)}`}</small></div><b>${faDigits(availableInputs.length)}</b></div><div class="group-device-list">${optionList(availableInputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="input"${disabledAttr}>&lt;&lt; ${english ? "Add all to input group" : "افزودن همه به گروه ورودی"}</button></section><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Output Devices" : "دیوایس‌های خروجی"}</h4><small>${english ? `Devices assigned to output group ${state.ioOutputGroupNumber}` : `دیوایس‌های گروه خروجی ${faDigits(state.ioOutputGroupNumber)}`}</small></div><b>${faDigits(availableOutputs.length)}</b></div><div class="group-device-list">${optionList(availableOutputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="output"${disabledAttr}>&lt;&lt; ${english ? "Add all to output group" : "افزودن همه به گروه خروجی"}</button></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Selected Group Members" : "اعضای انتخاب‌شده گروه‌ها"}</h4><small>${english ? `${inputRefs.length} inputs · ${outputRefs.length} outputs` : `${faDigits(inputRefs.length)} ورودی · ${faDigits(outputRefs.length)} خروجی`}</small></div><b>${faDigits(grouped.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div><div class="group-form-grid group-parameters"><label class="group-field"><span>${english ? "Active Count" : "تعداد فعال"}</span><input type="number" min="${inputRefs.length ? 1 : 0}" max="${Math.max(inputRefs.length, 0)}" value="${Math.min(relation.activeCount || (inputRefs.length ? 1 : 0), inputRefs.length)}" data-io-active-count${disabledAttr}></label><label class="group-field"><span>${english ? "Output Active for" : "فعال‌سازی خروجی برای"}</span><select data-io-output-active${disabledAttr}>${outputOptions.map(([value, label]) => `<option value="${value}" ${relation.outputActiveFor === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="group-field"><span>${english ? "Delay (0–999 Sec)" : "تاخیر (۰ تا ۹۹۹ ثانیه)"}</span><input type="number" min="0" max="999" value="${relation.delay ?? 0}" data-io-delay${disabledAttr}></label><label class="group-switch-field"><span><b>${english ? "Status" : "وضعیت"}</b><small>${english ? "Enable or disable this relation." : "این ارتباط را فعال یا غیرفعال کنید."}</small></span><span class="group-switch-wrap"><em>${relation.status ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-io-status ${relation.status ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-preview-row"><button type="button" class="btn-secondary compact" data-io-preview${disabledAttr}>${icons.dashboard}${english ? "Pre View" : "پیش‌نمایش"}</button>${state.groupPreviewOpen ? `<div class="group-preview"><b>${english ? "Relation Preview" : "پیش‌نمایش ارتباط"}</b><span>${relationSummary}</span></div>` : ""}</div>${actions("io", true)}</article>`;
+}
+
+function renderInputOutputGroupSetting() {
+  const english = state.language === "en";
+  const disabled = !state.connectedPanelId;
+  const disabledAttr = disabled ? " disabled" : "";
+  const relation = getIoGroup();
+  const inputRefs = state.ioInputGroups[state.ioInputGroupNumber] || [];
+  const outputRefs = state.ioOutputGroups[state.ioOutputGroupNumber] || [];
+  const selectedLoop = state.loopCards.find((card) => card.id === state.ioLoopCardId) || state.loopCards[0];
+  const inputKeys = new Set(inputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const outputKeys = new Set(outputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
+  const availableInputs = (selectedLoop?.devices || []).filter((device) => !isOutputGroupDevice(device) && !inputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !outputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
+  const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
+  const selectField = (label, attr, options) => `<label class="group-field"><span>${label}</span><select ${attr}${disabledAttr}>${options}</select></label>`;
+  const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
+  const conditionLabel = outputOptions.find(([value]) => value === relation.outputActiveFor)?.[1] || outputOptions[0][1];
+  const delay = Number(relation.delay) || 0;
+  const relationSummary = delay > 0
+    ? (english ? `Input Group ${state.ioInputGroupNumber} activates Output Group ${state.ioOutputGroupNumber} for ${conditionLabel} after ${delay} seconds.` : `گروه ورودی ${faDigits(state.ioInputGroupNumber)} هنگام ${conditionLabel}، پس از ${faDigits(delay)} ثانیه گروه خروجی ${faDigits(state.ioOutputGroupNumber)} را فعال می‌کند.`)
+    : (english ? `Input Group ${state.ioInputGroupNumber} activates Output Group ${state.ioOutputGroupNumber} for ${conditionLabel}.` : `گروه ورودی ${faDigits(state.ioInputGroupNumber)} هنگام ${conditionLabel} گروه خروجی ${faDigits(state.ioOutputGroupNumber)} را فعال می‌کند.`);
+  const list = (devices) => devices.length ? devices.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این لوپ وجود ندارد."}</div>`;
+  const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists above." : "دیوایس‌ها را از لیست‌های بالا اضافه کنید."}</div>`;
+  const activeCount = Math.max(1, Math.min(16, Number(relation.activeCount) || 1));
+  const activeCountOptions = Array.from({ length: 16 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${activeCount === value ? "selected" : ""}>${faDigits(value)}</option>`).join("");
+  const bottomActions = `<div class="group-actions"><span></span><button type="button" class="btn-secondary compact" data-group-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button><button type="button" class="btn-secondary compact" data-group-save="io"${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button><button type="button" class="btn-primary compact" data-group-update="io"${disabledAttr}>${icons.refresh}${english ? "Update All" : "به‌روزرسانی همه"}</button></div>`;
+  const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab" data-group-tab="zone" role="tab">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab active" data-group-tab="io" role="tab" aria-selected="true">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
+  return `<article class="sub-card group-setting io-group-setting"><div class="sub-card-head"><div><h3>${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</h3><p>${english ? "Create input and output groups independently, then connect them with an activation rule." : "گروه‌های ورودی و خروجی را جداگانه بسازید و سپس با یک شرط مشخص به هم مرتبط کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}<div class="group-toolbar"><button type="button" class="btn-secondary compact" data-group-read-all="io"${disabledAttr}>${icons.refresh}${english ? "Read All Groups" : "خواندن همه گروه‌ها"}</button><span class="group-connection-note ${disabled ? "offline" : "online"}">${disabled ? (english ? "Connect a panel to manage groups" : "برای مدیریت گروه‌ها پنل را متصل کنید") : (english ? "Panel connection active" : "اتصال پنل فعال است")}</span></div><section class="group-relation-card"><div class="group-relation-head"><div><h4>${english ? "Group Relation" : "ارتباط گروه‌ها"}</h4><small>${english ? "Select the input and output group numbers for this rule." : "شماره گروه ورودی و خروجی این ارتباط را انتخاب کنید."}</small></div><span class="group-relation-badge">${icons.chevronLeft}</span></div><div class="group-form-grid io-group-selects">${selectField(english ? "Input Group Number (1–96)" : "شماره گروه ورودی (۱ تا ۹۶)", "data-io-input-group", groupNumberOptions(state.ioInputGroupNumber, 96))}${selectField(english ? "Output Group Number (1–96)" : "شماره گروه خروجی (۱ تا ۹۶)", "data-io-output-group", groupNumberOptions(state.ioOutputGroupNumber, 96))}</div><div class="group-relation-summary">${icons.check}<span>${relationSummary}</span></div></section><section class="group-loop-selector"><div><h4>${english ? "Loop Card Devices" : "دیوایس‌های کارت لوپ"}</h4><small>${english ? "Choose a loop card to show its input and output devices below." : "یک کارت لوپ را انتخاب کنید تا دیوایس‌های ورودی و خروجی آن در ادامه نمایش داده شوند."}</small></div>${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-io-loop", groupLoopOptions(state.ioLoopCardId))}</section><div class="group-device-columns io-source-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? `Available for Input Group ${state.ioInputGroupNumber}` : `قابل افزودن به گروه ورودی ${faDigits(state.ioInputGroupNumber)}`}</small></div><b>${faDigits(availableInputs.length)}</b></div><div class="group-device-list">${list(availableInputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="input"${disabledAttr}>&lt;&lt; ${english ? "Add all to input group" : "افزودن همه به گروه ورودی"}</button></section><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Output Devices" : "دیوایس‌های خروجی"}</h4><small>${english ? `Available for Output Group ${state.ioOutputGroupNumber}` : `قابل افزودن به گروه خروجی ${faDigits(state.ioOutputGroupNumber)}`}</small></div><b>${faDigits(availableOutputs.length)}</b></div><div class="group-device-list">${list(availableOutputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="output"${disabledAttr}>&lt;&lt; ${english ? "Add all to output group" : "افزودن همه به گروه خروجی"}</button></section></div><div class="group-config-layout"><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Input / Output Grouping" : "گروهبندی ورودی و خروجی"}</h4><small>${english ? `${inputRefs.length} inputs · ${outputRefs.length} outputs` : `${faDigits(inputRefs.length)} ورودی · ${faDigits(outputRefs.length)} خروجی`}</small></div><b>${faDigits(grouped.length)}</b></div><div class="group-device-list">${groupedList}</div><div class="group-member-actions"><button type="button" class="btn-danger compact" data-group-delete="io"${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="io"${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button></div></section><aside class="group-parameters-rail"><label class="group-switch-field"><span><b>${english ? "Status" : "وضعیت"}</b><small>${english ? "Enable or disable this relation." : "این ارتباط را فعال یا غیرفعال کنید."}</small></span><span class="group-switch-wrap"><em>${relation.status ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-io-status ${relation.status ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label><label class="group-field"><span>${english ? "Active Count" : "تعداد فعال"}</span><select data-io-active-count${disabledAttr}>${activeCountOptions}</select></label><label class="group-field"><span>${english ? "Output Active for" : "فعال‌سازی خروجی برای"}</span><select data-io-output-active${disabledAttr}>${outputOptions.map(([value, label]) => `<option value="${value}" ${relation.outputActiveFor === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="group-field"><span>${english ? "Delay (0–999 Sec)" : "تاخیر (۰ تا ۹۹۹ ثانیه)"}</span><input type="number" min="0" max="999" value="${delay}" data-io-delay${disabledAttr}></label></aside></div>${bottomActions}</article>`;
 }
 
 function renderGroupSetting() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گروه‌بندی ورودی و خروجی</h3><p>دیوایس‌ها را برای اجرای سناریوهای مشترک گروه‌بندی کنید.</p></div><button type="button" class="btn-primary compact">+ گروه جدید</button></div><div class="group-list"><div><span class="group-color teal">۱</span><div><b>گروه حریق طبقات</b><small>۱۲ دیوایس · خروجی آژیر · تأخیر ۰ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color amber">۲</span><div><b>گروه ورودی‌های اضطراری</b><small>۴ دیوایس · خروجی رله ۲ · تأخیر ۵ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color sky">۳</span><div><b>گروه تجهیزات موتورخانه</b><small>۸ دیوایس · وضعیت نظارتی</small></div><em>پیش‌نویس</em>${icons.chevronLeft}</div></div></article>`;
+  return state.groupTab === "io" ? renderInputOutputGroupSetting() : renderGroupSettingZone();
+}
+
+function redrawGroupSetting() {
+  const root = document.querySelector(".group-setting");
+  if (!root) return;
+  root.outerHTML = renderGroupSetting();
+  bindGroupSettingEvents();
+}
+
+function groupConnectionGuard() {
+  if (state.connectedPanelId) return true;
+  showToast(state.language === "en" ? "Connect a panel before managing groups." : "برای مدیریت گروه‌ها ابتدا پنل را متصل کنید.", "info");
+  return false;
+}
+
+function arrangeIoGroupLayout() {
+  const root = document.querySelector(".io-group-setting");
+  const sourceColumns = root?.querySelector(".io-source-columns");
+  const inputPanel = sourceColumns?.querySelector(".group-device-panel:first-child");
+  const outputPanel = sourceColumns?.querySelector(".group-device-panel:nth-child(2)");
+  const relationCard = root?.querySelector(".group-relation-card");
+  if (sourceColumns && inputPanel && outputPanel && relationCard && relationCard.parentElement !== sourceColumns) outputPanel.after(relationCard);
+  splitIoGroupedPanels();
+}
+
+function splitIoGroupedPanels() {
+  const root = document.querySelector(".io-group-setting");
+  const configLayout = root?.querySelector(".group-config-layout");
+  const groupedPanel = configLayout?.querySelector(":scope > .grouped-panel");
+  if (!configLayout || !groupedPanel) return;
+  const english = state.language === "en";
+  const inputRefs = state.ioInputGroups[state.ioInputGroupNumber] || [];
+  const outputRefs = state.ioOutputGroups[state.ioOutputGroupNumber] || [];
+  const renderBox = (kind, refs, groupNumber) => {
+    const title = kind === "input" ? (english ? "Input Group Devices" : "دیوایس‌های گروه ورودی") : (english ? "Output Group Devices" : "دیوایس‌های گروه خروجی");
+    const description = kind === "input" ? (english ? `Devices assigned to Input Group ${groupNumber}` : `دیوایس‌های اختصاص‌یافته به گروه ورودی ${faDigits(groupNumber)}`) : (english ? `Devices assigned to Output Group ${groupNumber}` : `دیوایس‌های اختصاص‌یافته به گروه خروجی ${faDigits(groupNumber)}`);
+    const rows = refs.length ? refs.map((ref) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "No devices in this group." : "هنوز دیوایسی در این گروه قرار نگرفته است."}</div>`;
+    return `<section class="group-device-panel grouped-panel grouped-${kind}-panel"><div class="group-panel-head"><div><h4>${title}</h4><small>${description}</small></div><b>${faDigits(refs.length)}</b></div><div class="group-device-list">${rows}</div><div class="group-member-actions"><button type="button" class="btn-danger compact" data-group-delete="io-${kind}"${!state.connectedPanelId ? " disabled" : ""}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="io-${kind}"${!state.connectedPanelId ? " disabled" : ""}>${english ? "Delete All" : "حذف همه"}</button></div></section>`;
+  };
+  const wrapper = document.createElement("div");
+  wrapper.className = "grouped-panels-wrap";
+  wrapper.innerHTML = `${renderBox("input", inputRefs, state.ioInputGroupNumber)}${renderBox("output", outputRefs, state.ioOutputGroupNumber)}`;
+  groupedPanel.replaceWith(wrapper);
+}
+
+function bindGroupSettingEvents() {
+  const root = document.querySelector(".group-setting");
+  if (!root) return;
+  arrangeIoGroupLayout();
+  root.querySelectorAll("[data-group-tab]").forEach((button) => button.addEventListener("click", () => {
+    state.groupTab = button.dataset.groupTab;
+    state.groupSelectedDeviceKey = null;
+    state.groupPreviewOpen = false;
+    redrawGroupSetting();
+  }));
+  root.querySelector("[data-zone-group-number]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { state.zoneGroupNumber = Number(event.target.value); state.groupSelectedDeviceKey = null; redrawGroupSetting(); } });
+  root.querySelector("[data-zone-loop]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { state.zoneLoopCardId = event.target.value; state.groupSelectedDeviceKey = null; redrawGroupSetting(); } });
+  root.querySelector("[data-zone-prealarm]")?.addEventListener("change", (event) => {
+    if (!groupConnectionGuard()) return;
+    state.zonePreAlarm[state.zoneGroupNumber] = event.target.checked;
+    const status = event.target.closest(".group-switch-wrap")?.querySelector("em");
+    if (status) status.textContent = event.target.checked ? (state.language === "en" ? "Enable" : "فعال") : (state.language === "en" ? "Disable" : "غیرفعال");
+  });
+  root.querySelectorAll("[data-zone-input-device]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    const group = state.zoneGroups[state.zoneGroupNumber] || (state.zoneGroups[state.zoneGroupNumber] = []);
+    const ref = { loopId: state.zoneLoopCardId, deviceId: button.dataset.zoneInputDevice };
+    if (!group.some((item) => groupDeviceKey(item.loopId, item.deviceId) === groupDeviceKey(ref.loopId, ref.deviceId))) {
+      group.push(ref); state.groupSelectedDeviceKey = groupDeviceKey(ref.loopId, ref.deviceId);
+    }
+    redrawGroupSetting();
+  }));
+  root.querySelector("[data-io-input-group]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { state.ioInputGroupNumber = Number(event.target.value); state.groupSelectedDeviceKey = null; redrawGroupSetting(); } });
+  root.querySelector("[data-io-output-group]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { state.ioOutputGroupNumber = Number(event.target.value); state.groupSelectedDeviceKey = null; redrawGroupSetting(); } });
+  root.querySelector("[data-io-loop]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { state.ioLoopCardId = event.target.value; state.groupSelectedDeviceKey = null; redrawGroupSetting(); } });
+  root.querySelectorAll("[data-io-add-device]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    const kind = button.dataset.ioKind;
+    const list = kind === "output" ? (state.ioOutputGroups[state.ioOutputGroupNumber] || (state.ioOutputGroups[state.ioOutputGroupNumber] = [])) : (state.ioInputGroups[state.ioInputGroupNumber] || (state.ioInputGroups[state.ioInputGroupNumber] = []));
+    const ref = { loopId: state.ioLoopCardId, deviceId: button.dataset.ioAddDevice };
+    if (!list.some((item) => groupDeviceKey(item.loopId, item.deviceId) === groupDeviceKey(ref.loopId, ref.deviceId))) list.push(ref);
+    state.groupSelectedDeviceKey = groupDeviceKey(ref.loopId, ref.deviceId);
+    redrawGroupSetting();
+  }));
+  root.querySelectorAll("[data-io-add-all]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    const selectedLoop = state.loopCards.find((card) => card.id === state.ioLoopCardId);
+    const kind = button.dataset.ioAddAll;
+    const list = kind === "output" ? (state.ioOutputGroups[state.ioOutputGroupNumber] || (state.ioOutputGroups[state.ioOutputGroupNumber] = [])) : (state.ioInputGroups[state.ioInputGroupNumber] || (state.ioInputGroups[state.ioInputGroupNumber] = []));
+    (selectedLoop?.devices || []).filter((device) => (kind === "output" ? isOutputGroupDevice(device) : !isOutputGroupDevice(device))).forEach((device) => {
+      const ref = { loopId: selectedLoop.id, deviceId: device.id };
+      if (!list.some((item) => groupDeviceKey(item.loopId, item.deviceId) === groupDeviceKey(ref.loopId, ref.deviceId))) list.push(ref);
+    });
+    state.groupSelectedDeviceKey = null;
+    redrawGroupSetting();
+  }));
+  root.querySelector("[data-io-active-count]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { const group = getIoGroup(); group.activeCount = Math.max(1, Math.min(16, Number(event.target.value) || 1)); redrawGroupSetting(); } });
+  root.querySelector("[data-io-output-active]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { getIoGroup().outputActiveFor = event.target.value; redrawGroupSetting(); } });
+  root.querySelector("[data-io-delay]")?.addEventListener("change", (event) => { if (groupConnectionGuard()) { getIoGroup().delay = Math.max(0, Math.min(999, Number(event.target.value) || 0)); redrawGroupSetting(); } });
+  root.querySelector("[data-io-status]")?.addEventListener("change", (event) => {
+    if (!groupConnectionGuard()) return;
+    getIoGroup().status = event.target.checked;
+    const status = event.target.closest(".group-switch-wrap")?.querySelector("em");
+    if (status) status.textContent = event.target.checked ? (state.language === "en" ? "Enable" : "فعال") : (state.language === "en" ? "Disable" : "غیرفعال");
+  });
+  root.querySelector("[data-io-preview]")?.addEventListener("click", () => { if (groupConnectionGuard()) { state.groupPreviewOpen = !state.groupPreviewOpen; redrawGroupSetting(); } });
+  root.querySelectorAll("[data-group-selected-key]").forEach((button) => button.addEventListener("click", () => {
+    state.groupSelectedDeviceKey = button.dataset.groupSelectedKey;
+    root.querySelectorAll("[data-group-selected-key]").forEach((item) => item.classList.toggle("selected", item === button));
+  }));
+  root.querySelectorAll("[data-group-read-all]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    if (button.dataset.groupReadAll === "zone") {
+      state.zoneGroups = {};
+      state.loopCards.slice(0, 2).forEach((card, index) => { state.zoneGroups[index + 1] = card.devices.slice(0, 2).map((device) => ({ loopId: card.id, deviceId: device.id })); });
+      state.zonePreAlarm = { 1: true, 2: false };
+    } else {
+      const card = state.loopCards.find((item) => item.id === state.ioLoopCardId) || state.loopCards[0];
+      state.ioInputGroups[state.ioInputGroupNumber] = (card?.devices || []).filter((device) => !isOutputGroupDevice(device)).map((device) => ({ loopId: card.id, deviceId: device.id }));
+      state.ioOutputGroups[state.ioOutputGroupNumber] = (card?.devices || []).filter(isOutputGroupDevice).map((device) => ({ loopId: card.id, deviceId: device.id }));
+      state.ioRelations[`${state.ioInputGroupNumber}-${state.ioOutputGroupNumber}`] = { activeCount: 1, outputActiveFor: "fire", delay: 0, status: true };
+    }
+    state.groupSelectedDeviceKey = null;
+    redrawGroupSetting();
+    showToast(state.language === "en" ? "Groups were read from the panel." : "گروه‌ها از پنل خوانده شدند.");
+  }));
+  root.querySelectorAll("[data-group-delete]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    if (button.dataset.groupDelete === "zone") {
+      const group = state.zoneGroups[state.zoneGroupNumber] || [];
+      state.zoneGroups[state.zoneGroupNumber] = group.filter((ref) => groupDeviceKey(ref.loopId, ref.deviceId) !== state.groupSelectedDeviceKey);
+    } else if (button.dataset.groupDelete === "io-input" || button.dataset.groupDelete === "io-output") {
+      const targetKind = button.dataset.groupDelete === "io-output" ? "output" : "input";
+      const groups = targetKind === "output" ? state.ioOutputGroups : state.ioInputGroups;
+      const groupNumber = targetKind === "output" ? state.ioOutputGroupNumber : state.ioInputGroupNumber;
+      const group = groups[groupNumber] || [];
+      groups[groupNumber] = group.filter((ref) => groupDeviceKey(ref.loopId, ref.deviceId) !== state.groupSelectedDeviceKey);
+    } else {
+      const inputGroup = state.ioInputGroups[state.ioInputGroupNumber] || [];
+      const outputGroup = state.ioOutputGroups[state.ioOutputGroupNumber] || [];
+      state.ioInputGroups[state.ioInputGroupNumber] = inputGroup.filter((ref) => groupDeviceKey(ref.loopId, ref.deviceId) !== state.groupSelectedDeviceKey);
+      state.ioOutputGroups[state.ioOutputGroupNumber] = outputGroup.filter((ref) => groupDeviceKey(ref.loopId, ref.deviceId) !== state.groupSelectedDeviceKey);
+    }
+    state.groupSelectedDeviceKey = null;
+    redrawGroupSetting();
+  }));
+  root.querySelectorAll("[data-group-delete-all]").forEach((button) => button.addEventListener("click", () => {
+    if (!groupConnectionGuard()) return;
+    if (!window.confirm(state.language === "en" ? "Delete all group data?" : "تمام اطلاعات گروه‌بندی حذف شود؟")) return;
+    if (button.dataset.groupDeleteAll === "zone") { state.zoneGroups = {}; state.zonePreAlarm = {}; }
+    else if (button.dataset.groupDeleteAll === "io-input") { delete state.ioInputGroups[state.ioInputGroupNumber]; }
+    else if (button.dataset.groupDeleteAll === "io-output") { delete state.ioOutputGroups[state.ioOutputGroupNumber]; }
+    else { state.ioInputGroups = {}; state.ioOutputGroups = {}; state.ioRelations = {}; state.ioGroups = {}; }
+    state.groupSelectedDeviceKey = null;
+    redrawGroupSetting();
+    showToast(state.language === "en" ? "All group data was deleted." : "تمام اطلاعات گروه‌بندی حذف شد.", "info");
+  }));
+  root.querySelectorAll("[data-group-save]").forEach((button) => button.addEventListener("click", () => { if (groupConnectionGuard()) showToast(state.language === "en" ? "Group changes were saved locally." : "تغییرات گروه‌بندی در نرم‌افزار ذخیره شد."); }));
+  root.querySelectorAll("[data-group-update]").forEach((button) => button.addEventListener("click", () => { if (groupConnectionGuard()) showToast(state.language === "en" ? "All group changes were applied to the panel." : "تمام تغییرات گروه‌بندی روی پنل اعمال شد."); }));
+  root.querySelector("[data-group-print]")?.addEventListener("click", () => { if (groupConnectionGuard()) window.print(); });
 }
 
 function renderFeaturesSetting() {
@@ -616,6 +1241,39 @@ function renderCalendar() {
     cells.push(`<button class="calendar-day${selected}" data-day="${day}" type="button">${faDigits(day)}</button>`);
   }
   return `<div class="calendar-popover" id="calendar-popover" role="dialog" aria-label="${english ? "Select date" : "انتخاب تاریخ"}">${header}<div class="week-row">${days.map((day) => `<span>${english ? day : day.slice(0, 2)}</span>`).join("")}</div><div class="days-grid">${cells.join("")}</div><button class="today-button" type="button" data-today="true">${english ? "Today" : "امروز"}، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button>${calendarActions}</div>`;
+}
+
+function renderHolidayCalendar() {
+  if (!state.holidayCalendarOpen) return `<div class="calendar-popover hidden" id="holiday-calendar-popover"></div>`;
+  const english = state.language === "en";
+  const months = english ? englishMonthNames : monthNames;
+  const days = english ? englishWeekDays : weekDays;
+  const header = `<div class="calendar-header"><button class="calendar-nav" type="button" data-holiday-calendar-nav="prev" aria-label="${english ? "Previous" : "قبلی"}">${icons.chevronRight}</button><div class="calendar-title"><button type="button" class="calendar-select-button" data-holiday-calendar-view="months">${months[state.draftHolidayMonth - 1]}</button><button type="button" class="calendar-select-button year" data-holiday-calendar-view="years">${faDigits(state.draftHolidayYear)}</button></div><button class="calendar-nav" type="button" data-holiday-calendar-nav="next" aria-label="${english ? "Next" : "بعدی"}">${icons.chevronLeft}</button></div>`;
+  const actions = `<div class="calendar-actions"><button type="button" class="btn-ghost" data-holiday-date-cancel>${english ? "Cancel" : "انصراف"}</button><button type="button" class="btn-primary" data-holiday-date-confirm>${icons.check}${english ? "Confirm date" : "تأیید تاریخ"}</button></div>`;
+  const todayButton = `<button class="today-button" type="button" data-holiday-today="true">${english ? "Today" : "امروز"}، ${faDigits(today[0])}/${faDigits(pad(today[1]))}/${faDigits(pad(today[2]))}</button>`;
+  if (state.holidayCalendarMode === "months") return `<div class="calendar-popover" id="holiday-calendar-popover" role="dialog" aria-label="${english ? "Select month" : "انتخاب ماه"}">${header}<div class="picker-grid month-picker">${months.map((month, index) => `<button type="button" class="picker-option${state.draftHolidayMonth === index + 1 ? " selected" : ""}" data-holiday-month-select="${index + 1}">${month}</button>`).join("")}</div>${todayButton}${actions}</div>`;
+  if (state.holidayCalendarMode === "years") {
+    const years = Array.from({ length: 12 }, (_, index) => state.holidayCalendarYearPage + index);
+    return `<div class="calendar-popover" id="holiday-calendar-popover" role="dialog" aria-label="${english ? "Select year" : "انتخاب سال"}">${header}<div class="picker-grid year-picker">${years.map((year) => `<button type="button" class="picker-option${state.draftHolidayYear === year ? " selected" : ""}" data-holiday-year-select="${year}">${faDigits(year)}</button>`).join("")}</div>${todayButton}${actions}</div>`;
+  }
+  const firstDay = new Date(`${toGregorian(state.draftHolidayYear, state.draftHolidayMonth, 1)}T12:00:00`).getDay();
+  const saturdayIndex = (firstDay + 1) % 7;
+  const cells = [];
+  for (let i = 0; i < saturdayIndex; i++) cells.push(`<span class="calendar-day empty"></span>`);
+  for (let day = 1; day <= daysInMonth(state.draftHolidayYear, state.draftHolidayMonth); day++) {
+    const selected = day === state.draftHolidayDay ? " selected" : "";
+    cells.push(`<button class="calendar-day${selected}" data-holiday-day="${day}" type="button">${faDigits(day)}</button>`);
+  }
+  return `<div class="calendar-popover" id="holiday-calendar-popover" role="dialog" aria-label="${english ? "Select date" : "انتخاب تاریخ"}">${header}<div class="week-row">${days.map((day) => `<span>${english ? day : day.slice(0, 2)}</span>`).join("")}</div><div class="days-grid">${cells.join("")}</div>${todayButton}${actions}</div>`;
+}
+
+function renderNightTimePicker(kind, english) {
+  if (state.nightTimeOpen !== kind) return `<div class="time-popover hidden" data-night-time-popover="${kind}"></div>`;
+  const isStart = kind === "start";
+  const hour = isStart ? state.draftNightStartHour : state.draftNightEndHour;
+  const minute = isStart ? state.draftNightStartMinute : state.draftNightEndMinute;
+  const wheel = (items, selected, field) => `<div class="wheel-viewport"><div class="wheel-options night-wheel ${field}-wheel" data-night-wheel="${field}"><span class="wheel-spacer" aria-hidden="true"></span>${items.map((value) => `<button type="button" class="time-option${selected === value ? " selected" : ""}" data-night-wheel-value="${value}">${faDigits(pad(value))}</button>`).join("")}<span class="wheel-spacer" aria-hidden="true"></span></div><div class="wheel-selection-band" aria-hidden="true"></div></div>`;
+  return `<div class="time-popover night-time-popover" data-night-time-popover="${kind}" role="dialog" aria-label="${english ? "Select time" : "انتخاب ساعت"}"><div class="time-popover-head"><div><b>${english ? "Set time" : "تنظیم ساعت"}</b><small>${english ? "Scroll to the desired row" : "ردیف موردنظر را اسکرول کنید"}</small></div><strong data-night-draft-time="${kind}">${faDigits(pad(hour))}:${faDigits(pad(minute))}</strong></div><div class="time-picker-columns"><div class="time-picker-column"><label>${english ? "Hour" : "ساعت"}</label>${wheel(Array.from({ length: 24 }, (_, value) => value), hour, `${kind}-hour`)}</div><div class="time-picker-column"><label>${english ? "Minute" : "دقیقه"}</label>${wheel(Array.from({ length: 60 }, (_, value) => value), minute, `${kind}-minute`)}</div></div><div class="time-popover-actions"><button type="button" class="btn-ghost" data-night-time-cancel>${english ? "Cancel" : "انصراف"}</button><button type="button" class="btn-primary" data-night-time-confirm>${icons.check}${english ? "Confirm time" : "تأیید ساعت"}</button></div></div>`;
 }
 
 function renderTimePicker() {
@@ -816,6 +1474,177 @@ function bindDateTimeEvents() {
   });
 }
 
+function updateNightDraftValue(field, value) {
+  const [kind, unit] = field.split("-");
+  if (kind === "start" && unit === "hour") state.draftNightStartHour = value;
+  if (kind === "start" && unit === "minute") state.draftNightStartMinute = value;
+  if (kind === "end" && unit === "hour") state.draftNightEndHour = value;
+  if (kind === "end" && unit === "minute") state.draftNightEndMinute = value;
+  const hour = kind === "start" ? state.draftNightStartHour : state.draftNightEndHour;
+  const minute = kind === "start" ? state.draftNightStartMinute : state.draftNightEndMinute;
+  const root = document.querySelector(".night-settings-root");
+  root?.querySelector(`[data-night-draft-time="${kind}"]`)?.replaceChildren(document.createTextNode(`${faDigits(pad(hour))}:${faDigits(pad(minute))}`));
+  root?.querySelectorAll(`[data-night-wheel="${field}"] .time-option`).forEach((option) => option.classList.toggle("selected", Number(option.dataset.nightWheelValue) === value));
+}
+
+function setNightWheelPosition(wheel, value) {
+  if (!wheel) return;
+  const option = wheel.querySelector(`[data-night-wheel-value="${value}"]`);
+  if (option) wheel.scrollTop = option.offsetTop - (wheel.clientHeight - option.offsetHeight) / 2;
+}
+
+function getCenteredNightWheelValue(wheel) {
+  if (!wheel) return null;
+  const center = wheel.scrollTop + wheel.clientHeight / 2;
+  let closest = null;
+  let distance = Infinity;
+  wheel.querySelectorAll(".time-option").forEach((option) => {
+    const optionCenter = option.offsetTop + option.offsetHeight / 2;
+    const currentDistance = Math.abs(optionCenter - center);
+    if (currentDistance < distance) { closest = option; distance = currentDistance; }
+  });
+  return closest ? Number(closest.dataset.nightWheelValue) : null;
+}
+
+function bindNightWheel(wheel) {
+  if (!wheel) return;
+  let scrollTimer;
+  wheel.addEventListener("scroll", () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const value = getCenteredNightWheelValue(wheel);
+      if (value !== null) updateNightDraftValue(wheel.dataset.nightWheel, value);
+    }, 70);
+  }, { passive: true });
+}
+
+function redrawNightSetting() {
+  const root = document.querySelector(".night-settings-root");
+  if (!root) return;
+  root.outerHTML = renderNightSetting();
+  bindNightSettingEvents();
+}
+
+function resetNightSettings() {
+  state.dailyDayNightEnabled = false;
+  state.nightStartHour = 22;
+  state.nightStartMinute = 0;
+  state.nightEndHour = 7;
+  state.nightEndMinute = 0;
+  state.weekendEnabled = false;
+  state.weekendDay1 = "friday";
+  state.weekendDay2 = "thursday";
+  state.holidayEnabled = false;
+  state.nightTimeOpen = null;
+  state.holidayCalendarOpen = false;
+  state.holidayCalendarMode = "days";
+  state.holidayYear = today[0];
+  state.holidayMonth = 1;
+  state.holidayDay = 1;
+  state.draftHolidayYear = today[0];
+  state.draftHolidayMonth = 1;
+  state.draftHolidayDay = 1;
+  state.selectedHolidayIndex = 0;
+  state.holidayDates = [];
+}
+
+function bindNightSettingEvents() {
+  const root = document.querySelector(".night-settings-root");
+  if (!root) return;
+  const connected = Boolean(state.connectedPanelId);
+  root.querySelectorAll("[data-night-toggle]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    if (input.dataset.nightToggle === "daily") state.dailyDayNightEnabled = input.checked;
+    if (input.dataset.nightToggle === "weekend") state.weekendEnabled = input.checked;
+    if (input.dataset.nightToggle === "holiday") state.holidayEnabled = input.checked;
+    redrawNightSetting();
+  }));
+  root.querySelectorAll("[data-weekend-day]").forEach((select) => select.addEventListener("change", () => {
+    if (select.dataset.weekendDay === "1") state.weekendDay1 = select.value;
+    if (select.dataset.weekendDay === "2") state.weekendDay2 = select.value;
+  }));
+  root.querySelectorAll("[data-night-time-input]").forEach((input) => input.addEventListener("click", () => {
+    if (!connected) return;
+    const kind = input.dataset.nightTimeInput;
+    state.nightTimeOpen = kind;
+    state.holidayCalendarOpen = false;
+    if (kind === "start") { state.draftNightStartHour = state.nightStartHour; state.draftNightStartMinute = state.nightStartMinute; }
+    if (kind === "end") { state.draftNightEndHour = state.nightEndHour; state.draftNightEndMinute = state.nightEndMinute; }
+    redrawNightSetting();
+  }));
+  root.querySelectorAll(".night-wheel").forEach((wheel) => {
+    bindNightWheel(wheel);
+    const fieldParts = wheel.dataset.nightWheel.split("-");
+    const kind = fieldParts[0];
+    const unit = fieldParts[1];
+    const value = kind === "start" ? (unit === "hour" ? state.draftNightStartHour : state.draftNightStartMinute) : (unit === "hour" ? state.draftNightEndHour : state.draftNightEndMinute);
+    setNightWheelPosition(wheel, value);
+  });
+  root.addEventListener("click", (event) => {
+    const wheelOption = event.target.closest("[data-night-wheel-value]");
+    const wheel = event.target.closest(".night-wheel");
+    const confirmTime = event.target.closest("[data-night-time-confirm]");
+    const cancelTime = event.target.closest("[data-night-time-cancel]");
+    const holidayInput = event.target.closest("[data-holiday-date-input]");
+    const holidayDay = event.target.closest("[data-holiday-day]");
+    const holidayView = event.target.closest("[data-holiday-calendar-view]");
+    const holidayNav = event.target.closest("[data-holiday-calendar-nav]");
+    const holidayMonth = event.target.closest("[data-holiday-month-select]");
+    const holidayYear = event.target.closest("[data-holiday-year-select]");
+    const holidayToday = event.target.closest("[data-holiday-today]");
+    const holidayConfirm = event.target.closest("[data-holiday-date-confirm]");
+    const holidayCancel = event.target.closest("[data-holiday-date-cancel]");
+    const holidaySelect = event.target.closest("[data-holiday-select]");
+    const holidayAdd = event.target.closest("[data-holiday-add]");
+    const holidayDelete = event.target.closest("[data-holiday-delete]");
+    const deleteAll = event.target.closest("[data-night-delete-all]");
+    if (wheelOption && wheel) { updateNightDraftValue(wheel.dataset.nightWheel, Number(wheelOption.dataset.nightWheelValue)); wheelOption.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+    if (confirmTime && connected) {
+      if (state.nightTimeOpen === "start") { state.nightStartHour = state.draftNightStartHour; state.nightStartMinute = state.draftNightStartMinute; }
+      if (state.nightTimeOpen === "end") { state.nightEndHour = state.draftNightEndHour; state.nightEndMinute = state.draftNightEndMinute; }
+      state.nightTimeOpen = null; redrawNightSetting(); return;
+    }
+    if (cancelTime) { state.nightTimeOpen = null; redrawNightSetting(); return; }
+    if (deleteAll && connected) {
+      const message = state.language === "en" ? "Delete all day/night settings and holiday dates?" : "همه تنظیمات شب و روز و تاریخ‌های تعطیلات حذف شود؟";
+      if (!window.confirm(message)) return;
+      resetNightSettings();
+      redrawNightSetting();
+      showToast(state.language === "en" ? "All day/night settings were deleted." : "تمام تنظیمات شب و روز حذف شد.", "info");
+      return;
+    }
+    if (holidayInput && connected) {
+      state.nightTimeOpen = null; state.holidayCalendarOpen = true; state.holidayCalendarMode = "days"; state.draftHolidayYear = state.holidayYear; state.draftHolidayMonth = state.holidayMonth; state.draftHolidayDay = state.holidayDay; state.holidayCalendarYearPage = Math.floor(state.draftHolidayYear / 12) * 12; redrawNightSetting(); return;
+    }
+    if (holidayDay) { state.draftHolidayDay = Number(holidayDay.dataset.holidayDay); redrawNightSetting(); return; }
+    if (holidayView) { state.holidayCalendarMode = holidayView.dataset.holidayCalendarView; if (state.holidayCalendarMode === "years") state.holidayCalendarYearPage = Math.floor(state.draftHolidayYear / 12) * 12; redrawNightSetting(); return; }
+    if (holidayNav) {
+      const direction = holidayNav.dataset.holidayCalendarNav === "next" ? 1 : -1;
+      if (state.holidayCalendarMode === "years") state.holidayCalendarYearPage += direction * 12;
+      else if (state.holidayCalendarMode === "months") state.draftHolidayYear += direction;
+      else { state.draftHolidayMonth += direction; if (state.draftHolidayMonth === 13) { state.draftHolidayMonth = 1; state.draftHolidayYear += 1; } if (state.draftHolidayMonth === 0) { state.draftHolidayMonth = 12; state.draftHolidayYear -= 1; } state.draftHolidayDay = Math.min(state.draftHolidayDay, daysInMonth(state.draftHolidayYear, state.draftHolidayMonth)); }
+      redrawNightSetting(); return;
+    }
+    if (holidayMonth) { state.draftHolidayMonth = Number(holidayMonth.dataset.holidayMonthSelect); state.draftHolidayDay = Math.min(state.draftHolidayDay, daysInMonth(state.draftHolidayYear, state.draftHolidayMonth)); state.holidayCalendarMode = "days"; redrawNightSetting(); return; }
+    if (holidayYear) { state.draftHolidayYear = Number(holidayYear.dataset.holidayYearSelect); state.draftHolidayDay = Math.min(state.draftHolidayDay, daysInMonth(state.draftHolidayYear, state.draftHolidayMonth)); state.holidayCalendarMode = "days"; state.holidayCalendarYearPage = Math.floor(state.draftHolidayYear / 12) * 12; redrawNightSetting(); return; }
+    if (holidayToday) { [state.draftHolidayYear, state.draftHolidayMonth, state.draftHolidayDay] = today; state.holidayCalendarMode = "days"; redrawNightSetting(); return; }
+    if (holidayConfirm) { state.holidayYear = state.draftHolidayYear; state.holidayMonth = state.draftHolidayMonth; state.holidayDay = state.draftHolidayDay; state.holidayCalendarOpen = false; state.holidayCalendarMode = "days"; redrawNightSetting(); return; }
+    if (holidayCancel) { state.draftHolidayYear = state.holidayYear; state.draftHolidayMonth = state.holidayMonth; state.draftHolidayDay = state.holidayDay; state.holidayCalendarOpen = false; state.holidayCalendarMode = "days"; redrawNightSetting(); return; }
+    if (holidaySelect && connected) { const index = Number(holidaySelect.dataset.holidaySelect); const selected = state.holidayDates[index]; if (selected) { state.selectedHolidayIndex = index; state.holidayYear = selected.year; state.holidayMonth = selected.month; state.holidayDay = selected.day; } redrawNightSetting(); return; }
+    if (holidayAdd && connected) {
+      const exists = state.holidayDates.some((holiday) => holiday.year === state.holidayYear && holiday.month === state.holidayMonth && holiday.day === state.holidayDay);
+      if (exists) { showToast(state.language === "en" ? "This holiday date is already in the list." : "این تاریخ قبلاً در فهرست تعطیلات وجود دارد.", "info"); return; }
+      state.holidayDates.push({ year: state.holidayYear, month: state.holidayMonth, day: state.holidayDay }); state.selectedHolidayIndex = state.holidayDates.length - 1; redrawNightSetting(); return;
+    }
+    if (holidayDelete && connected) {
+      if (!state.holidayDates.length) return;
+      state.holidayDates.splice(state.selectedHolidayIndex, 1); state.selectedHolidayIndex = Math.max(0, Math.min(state.selectedHolidayIndex, state.holidayDates.length - 1));
+      const selected = state.holidayDates[state.selectedHolidayIndex]; if (selected) { state.holidayYear = selected.year; state.holidayMonth = selected.month; state.holidayDay = selected.day; }
+      redrawNightSetting();
+    }
+  });
+}
+
 function bindViewEvents() {
   const content = document.querySelector("#content-root");
   if (!content) return;
@@ -868,6 +1697,8 @@ function bindViewEvents() {
     state.selectedSettingId = button.dataset.settingId;
     state.calendarOpen = false;
     state.timeOpen = false;
+    state.nightTimeOpen = null;
+    state.holidayCalendarOpen = false;
     renderApp();
   }));
   content.querySelectorAll("[data-language-select]").forEach((select) => select.addEventListener("change", () => {
@@ -892,6 +1723,9 @@ function bindViewEvents() {
   content.querySelectorAll("[data-english-only]").forEach((input) => input.addEventListener("input", () => {
     input.value = input.value.replace(/[^A-Za-z0-9 _-]/g, "");
   }));
+  bindGroupSettingEvents();
+  bindLoopCardEvents();
+  bindNightSettingEvents();
   bindDateTimeEvents();
 }
 
