@@ -472,6 +472,7 @@ function renderShell() {
           <button class="nav-item" type="button" data-nav-view="workspace">${icons.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
           <p class="nav-caption nav-space">مدیریت</p>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="loop-card">${icons.panel}<span>پنل‌های من</span></button>
+          <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="events">${icons.bell}<span>رویدادها</span><em class="warning-count">۲</em></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="report">${icons.report}<span>گزارش‌ها</span></button>
         </nav>

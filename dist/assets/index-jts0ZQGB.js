@@ -14,6 +14,7 @@
           <button class="nav-item" type="button" data-nav-view="workspace">${r.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
           <p class="nav-caption nav-space">مدیریت</p>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="loop-card">${r.panel}<span>پنل‌های من</span></button>
+          <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${r.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="events">${r.bell}<span>رویدادها</span><em class="warning-count">۲</em></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="report">${r.report}<span>گزارش‌ها</span></button>
         </nav>
