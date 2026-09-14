@@ -126,6 +126,7 @@ const state = {
   holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
   selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
   view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
+  panelMenuOpen: false, panelMenuFloating: false, settingsTreeCollapsed: true,
   selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopCards: [],
   groupTab: "zone", zoneGroupNumber: 1, zoneLoopCardId: "loop-1", zonePreAlarm: {}, zoneGroups: {},
   ioInputGroupNumber: 1, ioOutputGroupNumber: 1, ioLoopCardId: "loop-1", ioGroups: {}, ioInputGroups: {}, ioOutputGroups: {}, ioRelations: {}, ioSavedRelations: {}, groupSelectedDeviceKey: null, groupPreviewOpen: false,
@@ -505,7 +506,16 @@ function renderProjectStrip(project) {
 }
 
 function renderPanelList(project, panel) {
-  return `<aside class="panel-list-column"><div class="column-heading"><div><span class="eyebrow">پنل‌ها</span><h3>پنل‌های پروژه</h3><p>${faDigits(project.panels.length)} پنل در این پروژه</p></div><button type="button" class="icon-button small-icon" data-panel-refresh>${icons.refresh}</button></div><div class="panel-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? "متصل" : item.status}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button><button type="button" class="panel-connect-button ${itemConnected ? "connected" : ""}" data-connect-panel="${item.id}">${itemConnected ? icons.check + "قطع اتصال" : icons.wifi + "اتصال"}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>پنل جدید اضافه کنید</b><small>اتصال پنل در نسخه بعدی</small></span></div></aside>`;
+  const english = state.language === "en";
+  const panelConnection = state.connectedPanelId === panel.id;
+  return `<section class="panel-popup-wrap${state.panelMenuOpen ? " open" : " collapsed"}${state.panelMenuFloating ? " floating-open" : ""}" aria-label="${english ? "Project panels" : "پنل‌های پروژه"}">
+    <div class="panel-popup-head">
+      <div class="panel-popup-title"><span class="panel-popup-icon">${icons.panel}</span><div><span class="eyebrow">${english ? "PROJECT PANELS" : "پنل‌های پروژه"}</span><h3>${english ? "Panels in this project" : "پنل‌های این پروژه"}</h3><p>${faDigits(project.panels.length)} ${english ? "registered panels" : "پنل ثبت‌شده"}</p></div></div>
+      <div class="panel-current-selection"><span>${icons.check}</span><div><small>${english ? "Selected panel" : "پنل انتخاب‌شده"}</small><b>${panel.name}</b><em>${panel.code}${panelConnection ? ` · ${english ? "Connected" : "متصل"}` : ""}</em></div></div>
+      <div class="panel-popup-actions"><button type="button" class="icon-button small-icon" data-panel-refresh aria-label="${english ? "Refresh panels" : "به‌روزرسانی پنل‌ها"}">${icons.refresh}</button><button type="button" class="icon-button small-icon panel-popup-toggle" data-panel-menu-toggle aria-expanded="${state.panelMenuOpen}" aria-label="${state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")}">${state.panelMenuOpen ? icons.chevronRight : icons.chevronLeft}</button></div>
+    </div>
+    <div class="panel-popup-body"><div class="panel-popup-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? (english ? "Connected" : "متصل") : (english ? "Offline" : item.status)}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button><button type="button" class="panel-connect-button ${itemConnected ? "connected" : ""}" data-connect-panel="${item.id}">${itemConnected ? icons.check + (english ? "Disconnect" : "قطع اتصال") : icons.wifi + (english ? "Connect" : "اتصال")}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>${english ? "Add a new panel" : "پنل جدید اضافه کنید"}</b><small>${english ? "Panel connection is coming next" : "اتصال پنل در نسخه بعدی"}</small></span></div></div>
+  </section>`;
 }
 
 function renderSettingsTree() {
@@ -514,7 +524,8 @@ function renderSettingsTree() {
     const isOpen = state.openSettingsSections[node.id] !== false;
     return `<div class="tree-node depth-${depth}">${node.children ? `<button type="button" class="tree-parent${isOpen ? " open" : ""}" data-tree-parent="${node.id}"><span class="tree-chevron">${icons.chevronDown}</span>${icons[node.icon] || icons.settings}<span>${label}</span></button><div class="tree-children${isOpen ? " open" : " collapsed"}">${node.children.map((child) => renderNode(child, depth + 1)).join("")}</div>` : `<button type="button" class="tree-item${node.id === state.selectedSettingId ? " active" : ""}" data-setting-id="${node.id}">${icons[node.icon] || icons.settings}<span>${label}</span></button>`}</div>`;
   };
-  return `<aside class="settings-tree-column"><div class="column-heading"><div><span class="eyebrow">پیکربندی پنل</span><h3>تنظیمات پنل</h3><p>منوی تنظیمات بر اساس مستندات سیستم</p></div></div><div class="settings-tree">${settingsTree.map((node) => renderNode(node)).join("")}</div><div class="tree-note">${icons.check}<span><b>راهنمای تنظیمات</b><small>برای مشاهده هر بخش، گزینه‌ی آن را انتخاب کنید.</small></span></div></aside>`;
+  const english = state.language === "en";
+  return `<aside class="settings-tree-column${state.settingsTreeCollapsed ? " minimized" : ""}"><div class="column-heading"><div class="settings-tree-heading"><span class="settings-tree-icon">${icons.settings}</span><div><span class="eyebrow">${english ? "PANEL CONFIGURATION" : "پیکربندی پنل"}</span><h3>${english ? "Panel settings" : "تنظیمات پنل"}</h3><p>${english ? "System configuration menu" : "منوی تنظیمات بر اساس مستندات سیستم"}</p></div></div><button type="button" class="icon-button small-icon settings-tree-toggle" data-settings-collapse aria-expanded="${!state.settingsTreeCollapsed}" aria-label="${state.settingsTreeCollapsed ? (english ? "Expand panel configuration" : "باز کردن پیکربندی پنل") : (english ? "Minimize panel configuration" : "مینیمایز کردن پیکربندی پنل")}">${state.settingsTreeCollapsed ? icons.chevronLeft : icons.chevronRight}</button></div><div class="settings-tree">${settingsTree.map((node) => renderNode(node)).join("")}</div><div class="tree-note">${icons.check}<span><b>${english ? "Settings guide" : "راهنمای تنظیمات"}</b><small>${english ? "Select an item to view its settings." : "برای مشاهده هر بخش، گزینه‌ی آن را انتخاب کنید."}</small></span></div></aside>`;
 }
 
 function renderDetailHeader(panel, settingTitle, settingEn) {
@@ -1250,7 +1261,9 @@ function renderMonitoringSetting() { return `<div class="monitoring-grid"><artic
 
 function renderWorkspace(project) {
   const panel = findPanel();
-  return `<section class="workspace-breadcrumb"><button type="button" data-back-projects>${icons.chevronRight}پروژه‌ها</button>${icons.chevronLeft}<span>${project.name}</span>${icons.chevronLeft}<b>${panel.name}</b></section>${renderProjectStrip(project)}<section class="workspace-layout">${renderPanelList(project, panel)}${renderSettingsTree()}<main class="setting-detail-column">${renderSettingDetail(panel)}</main></section>`;
+  const shellClasses = ["workspace-shell", state.panelMenuOpen ? "panel-menu-open" : "panel-menu-collapsed", state.panelMenuOpen || state.panelMenuFloating ? "panel-menu-floating" : "", state.settingsTreeCollapsed ? "settings-menu-collapsed" : "settings-menu-open", !state.panelMenuOpen && state.settingsTreeCollapsed ? "menus-docked" : ""].filter(Boolean).join(" ");
+  const layoutClasses = ["workspace-layout", state.settingsTreeCollapsed ? "settings-tree-minimized" : ""].filter(Boolean).join(" ");
+  return `<section class="workspace-breadcrumb"><button type="button" data-back-projects>${icons.chevronRight}پروژه‌ها</button>${icons.chevronLeft}<span>${project.name}</span>${icons.chevronLeft}<b>${panel.name}</b></section>${renderProjectStrip(project)}<section class="${shellClasses}">${renderPanelList(project, panel)}<section class="${layoutClasses}">${renderSettingsTree()}<main class="setting-detail-column">${renderSettingDetail(panel)}</main></section></section>`;
 }
 
 function renderApp() {
@@ -1717,6 +1730,10 @@ function bindViewEvents() {
     state.selectedPanelId = selectedProject?.panels[0]?.id || null;
     if (!selectedProject?.panels.some((panel) => panel.id === state.connectedPanelId)) state.connectedPanelId = null;
     state.selectedSettingId = "date-time";
+    // Start every newly opened project with both popup menus minimized.
+    state.panelMenuOpen = false;
+    state.panelMenuFloating = false;
+    state.settingsTreeCollapsed = true;
     state.view = "workspace";
     renderApp();
   }));
@@ -1725,6 +1742,38 @@ function bindViewEvents() {
     state.selectedProjectId = null;
     state.selectedPanelId = null;
     renderApp();
+  }));
+  content.querySelectorAll("[data-panel-menu-toggle]").forEach((button) => button.addEventListener("click", () => {
+    const wasClosed = !state.panelMenuOpen;
+    state.panelMenuOpen = !state.panelMenuOpen;
+    state.panelMenuFloating = state.panelMenuOpen;
+    const popup = button.closest(".panel-popup-wrap");
+    const workspace = popup?.closest(".workspace-shell");
+    popup?.classList.toggle("open", state.panelMenuOpen);
+    popup?.classList.toggle("collapsed", !state.panelMenuOpen);
+    popup?.classList.toggle("floating-open", state.panelMenuFloating);
+    workspace?.classList.toggle("panel-menu-floating", state.panelMenuFloating);
+    workspace?.classList.toggle("panel-menu-open", state.panelMenuOpen);
+    workspace?.classList.toggle("menus-docked", !state.panelMenuOpen && state.settingsTreeCollapsed);
+    workspace?.classList.toggle("panel-menu-collapsed", !state.panelMenuOpen);
+    button.setAttribute("aria-expanded", String(state.panelMenuOpen));
+    button.setAttribute("aria-label", state.panelMenuOpen ? (state.language === "en" ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (state.language === "en" ? "Expand panels" : "باز کردن پنل‌ها"));
+    button.innerHTML = state.panelMenuOpen ? icons.chevronRight : icons.chevronLeft;
+  }));
+  content.querySelectorAll("[data-settings-collapse]").forEach((button) => button.addEventListener("click", () => {
+    state.settingsTreeCollapsed = !state.settingsTreeCollapsed;
+    const tree = button.closest(".settings-tree-column");
+    const layout = tree?.closest(".workspace-layout");
+    const workspace = tree?.closest(".workspace-shell");
+    tree?.classList.toggle("minimized", state.settingsTreeCollapsed);
+    layout?.classList.toggle("settings-tree-minimized", state.settingsTreeCollapsed);
+    workspace?.classList.toggle("settings-menu-collapsed", state.settingsTreeCollapsed);
+    workspace?.classList.toggle("settings-menu-open", !state.settingsTreeCollapsed);
+    workspace?.classList.toggle("menus-docked", !state.panelMenuOpen && state.settingsTreeCollapsed);
+    workspace?.classList.toggle("panel-menu-floating", state.panelMenuFloating);
+    button.setAttribute("aria-expanded", String(!state.settingsTreeCollapsed));
+    button.setAttribute("aria-label", state.settingsTreeCollapsed ? (state.language === "en" ? "Expand panel configuration" : "باز کردن پیکربندی پنل") : (state.language === "en" ? "Minimize panel configuration" : "مینیمایز کردن پیکربندی پنل"));
+    button.innerHTML = state.settingsTreeCollapsed ? icons.chevronLeft : icons.chevronRight;
   }));
   content.querySelectorAll("[data-panel-id]").forEach((button) => button.addEventListener("click", () => {
     state.selectedPanelId = button.dataset.panelId;
@@ -1748,6 +1797,8 @@ function bindViewEvents() {
   }));
   content.querySelectorAll("[data-tree-parent]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.treeParent;
+    const treeColumn = button.closest(".settings-tree-column:not(.minimized)");
+    const startHeight = treeColumn?.getBoundingClientRect().height || 0;
     state.openSettingsSections[id] = state.openSettingsSections[id] === false;
     const open = state.openSettingsSections[id];
     const children = button.parentElement?.querySelector(":scope > .tree-children");
@@ -1755,6 +1806,24 @@ function bindViewEvents() {
     button.classList.toggle("not", !open);
     children?.classList.toggle("open", open);
     children?.classList.toggle("collapsed", !open);
+
+    // Animate the settings card itself as branches open and close. The final
+    // inline height is removed after the transition so later content changes
+    // remain naturally sized.
+    if (treeColumn && startHeight) {
+      treeColumn.classList.add("is-resizing");
+      treeColumn.style.setProperty("height", `${startHeight}px`, "important");
+      requestAnimationFrame(() => {
+        treeColumn.style.setProperty("height", `${treeColumn.scrollHeight}px`, "important");
+      });
+      const finishResize = (event) => {
+        if (event.propertyName !== "height") return;
+        treeColumn.style.removeProperty("height");
+        treeColumn.classList.remove("is-resizing");
+        treeColumn.removeEventListener("transitionend", finishResize);
+      };
+      treeColumn.addEventListener("transitionend", finishResize);
+    }
   }));
   content.querySelectorAll("[data-setting-id]").forEach((button) => button.addEventListener("click", () => {
     state.selectedSettingId = button.dataset.settingId;
