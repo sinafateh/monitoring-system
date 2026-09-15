@@ -4568,6 +4568,76 @@ html.dark .group-member-actions { border-color: #397c73; }
 @media (max-width: 900px) { .group-parameters-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .group-parameters-rail, .io-group-selects { grid-template-columns: 1fr; } }
 
+/* Unified input/output relation configuration: the relation card takes one
+   half and the four related controls sit beside it in a 2x2 grid. */
+body #app #content-root .io-group-setting .group-relation-config-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f7fbfa, #ffffff);
+  border: 1px solid #dcebe8;
+  border-radius: 14px;
+  box-sizing: border-box;
+  direction: rtl;
+}
+body #app #content-root .io-group-setting .group-relation-config-box > .group-relation-card {
+  grid-column: auto !important;
+  width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+body #app #content-root .io-group-setting .group-relation-config-box > .group-parameters-rail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: stretch;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+body #app #content-root .io-group-setting .group-relation-config-box > .group-parameters-rail .group-field,
+body #app #content-root .io-group-setting .group-relation-config-box > .group-parameters-rail .group-switch-field {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+body #app #content-root .io-group-setting .group-relation-config-box > .group-parameters-rail .saved-io-relations {
+  grid-column: 1 / -1;
+}
+html.dark body #app #content-root .io-group-setting .group-relation-config-box {
+  background: linear-gradient(135deg, #1b3033, #17242c);
+  border-color: #365b5a;
+}
+html[dir="ltr"] body #app #content-root .io-group-setting .group-relation-config-box {
+  direction: ltr;
+}
+@media (max-width: 900px) {
+  body #app #content-root .io-group-setting .group-relation-config-box {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  body #app #content-root .io-group-setting .group-relation-config-box > .group-parameters-rail {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Saved relations are an independent full-width section below the unified
+   relation/parameters box. */
+body #app #content-root .io-group-setting > .group-config-layout > .saved-io-relations {
+  grid-column: 1 / -1 !important;
+  width: 100%;
+  margin-top: 2px;
+  box-sizing: border-box;
+}
+
 /* Unified animated toggle switches */
 .toggle-row i,
 .network-toggle,
@@ -5324,6 +5394,19 @@ html.dark .saved-io-relation-empty { background: #172b34; border-color: #55747e;
 .saved-io-relation.inactive:hover { opacity: .72; }
 html.dark .saved-io-relation.inactive { opacity: .46; filter: saturate(.4); }
 html.dark .saved-io-relation.inactive:hover { opacity: .68; }
+
+/* The group relation belongs immediately below the two grouped-device boxes,
+   before the status/count/output/delay controls. */
+body #app #content-root .io-group-setting > .group-config-layout > .group-relation-card {
+  grid-column: 1 / -1 !important;
+  margin: 0 !important;
+}
+body #app #content-root .io-group-setting > .group-config-layout > .grouped-panels-wrap {
+  grid-column: 1 / -1 !important;
+}
+body #app #content-root .io-group-setting > .group-config-layout > .group-parameters-rail {
+  grid-column: 1 / -1 !important;
+}
 @media (max-width: 900px) {
   .saved-io-relation { grid-template-columns: 1fr; gap: 5px; }
   .saved-io-relation-meta { white-space: normal; }
@@ -6735,6 +6818,23 @@ html[dir="ltr"] .workspace-shell.menus-docked > .workspace-layout > .settings-tr
 }
 
 /* FINAL-PANEL-POPUP-EOF-20260914 */
+
+/* Keep workspace popups below the sticky page header while scrolling. The
+   popup cards can still layer above the workspace content, but they must not
+   cross over the topbar or the fixed sidebar. */
+body #app .topbar {
+  position: sticky !important;
+  z-index: 100 !important;
+}
+body #app .content-wrap {
+  position: relative;
+  z-index: 0;
+}
+body #content-root .workspace-shell {
+  position: relative !important;
+  z-index: 1 !important;
+  isolation: isolate;
+}
 body #content-root .workspace-shell > .panel-popup-wrap.open .panel-popup-head,
 body #content-root .workspace-shell > .panel-popup-wrap.floating-open .panel-popup-head {
   position: relative !important;
@@ -6815,4 +6915,1778 @@ body #content-root .workspace-shell > .panel-popup-wrap.floating-open .panel-pop
   body #content-root .workspace-shell > .panel-popup-wrap.floating-open .panel-popup-title { grid-column: 2 !important; grid-row: 1 !important; }
   body #content-root .workspace-shell > .panel-popup-wrap.open .panel-current-selection,
   body #content-root .workspace-shell > .panel-popup-wrap.floating-open .panel-current-selection { grid-column: 1 / -1 !important; grid-row: 2 !important; }
+}
+
+/* FINAL-WORKSPACE-INTERACTION-20260915 */
+
+/* Settings popup reveal: the card opens from its top edge without a page-wide
+   animation or an inner scrollbar. */
+body #content-root .workspace-shell.settings-menu-open > .workspace-layout > .settings-tree-column:not(.minimized) {
+  transform-origin: top right !important;
+  animation: settings-popup-reveal .34s cubic-bezier(.22,.61,.36,1) both !important;
+  overflow: visible !important;
+}
+@keyframes settings-popup-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scaleY(.94);
+    clip-path: inset(0 0 100% 0 round 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    clip-path: inset(0 0 0 0 round 16px);
+  }
+}
+
+/* Collapsed panel popup: visual order is title, selected panel, toggle from
+   right to left. The DOM remains unchanged so all existing interactions keep
+   working. */
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  display: grid !important;
+  grid-template-columns: 34px minmax(92px, 1fr) minmax(130px, 1.45fr) !important;
+  grid-template-rows: 1fr !important;
+  align-items: center !important;
+  gap: 9px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  direction: ltr !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions {
+  position: static !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  gap: 0 !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions [data-panel-refresh] {
+  display: none !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions .panel-popup-toggle {
+  position: static !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  position: static !important;
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 7px 8px !important;
+  box-sizing: border-box !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  position: static !important;
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: right !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title > div {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  text-align: right !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title h3 {
+  display: block !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 720px) {
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    grid-template-columns: 32px minmax(96px, 1fr) minmax(112px, 1.2fr) !important;
+    gap: 7px !important;
+  }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+    padding: 6px !important;
+  }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection small,
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection em {
+    font-size: 7px !important;
+  }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection b {
+    font-size: 9px !important;
+  }
+}
+
+/* Give minimized popup cards enough horizontal room for the title, selected
+   panel name and toggle without forcing the text into unusable ellipses. */
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed,
+body #content-root .workspace-shell.menus-docked > .panel-popup-wrap.collapsed {
+  width: 360px !important;
+  min-width: 360px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  grid-template-columns: 40px minmax(136px, 1fr) minmax(156px, 1.2fr) !important;
+  gap: 12px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  min-width: 136px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  min-width: 156px !important;
+}
+
+@media (max-width: 1050px) and (min-width: 721px) {
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed,
+  body #content-root .workspace-shell.menus-docked > .panel-popup-wrap.collapsed {
+    width: 320px !important;
+    min-width: 320px !important;
+  }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    grid-template-columns: 36px minmax(120px, 1fr) minmax(140px, 1.15fr) !important;
+    gap: 9px !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed,
+  body #content-root .workspace-shell.menus-docked > .panel-popup-wrap.collapsed {
+    width: min(360px, calc(100vw - 28px)) !important;
+    min-width: min(360px, calc(100vw - 28px)) !important;
+  }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    grid-template-columns: 34px minmax(118px, 1fr) minmax(142px, 1.2fr) !important;
+    gap: 8px !important;
+  }
+}
+
+/* PROJECT + PANEL FULL-WIDTH RAIL
+   The project selector and panel selector now share the same full content
+   width. Their collapsed state keeps only the current selection visible; the
+   settings workspace continues below them in the normal document flow. */
+body #content-root .project-strip-wrap {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: padding .28s cubic-bezier(.22,.61,.36,1), box-shadow .22s ease, background-color .22s ease;
+}
+body #content-root .project-strip-head {
+  min-width: 0;
+  gap: 14px;
+}
+body #content-root .project-strip-heading {
+  min-width: 0;
+}
+body #content-root .project-strip-current {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 5px 8px;
+  background: #f7fbfa;
+  border: 1px solid #e1f1ed;
+  border-radius: 12px;
+}
+body #content-root .project-strip-current > span:last-child {
+  display: block;
+  min-width: 0;
+}
+body #content-root .project-strip-current b,
+body #content-root .project-strip-current small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body #content-root .project-strip-current b { color: #294254; font-size: 11px; }
+body #content-root .project-strip-current small { margin-top: 2px; color: #82909e; font-size: 9px; }
+body #content-root .project-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+body #content-root .project-strip-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 10px;
+  transition: color .2s ease, background-color .2s ease, transform .25s cubic-bezier(.22,.61,.36,1);
+}
+body #content-root .project-strip-toggle:hover { transform: translateY(-1px); }
+body #content-root .project-strip-toggle svg { width: 15px; height: 15px; }
+body #content-root .project-strip-wrap.collapsed {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+body #content-root .project-strip-wrap.collapsed .project-strip-heading,
+body #content-root .project-strip-wrap.collapsed .strip-back,
+body #content-root .project-strip-wrap.collapsed .project-strip {
+  display: none !important;
+}
+body #content-root .project-strip-wrap.collapsed .project-strip-current {
+  display: flex;
+}
+body #content-root .project-strip-wrap.collapsed .project-strip-head { margin-bottom: 0; }
+
+body #content-root .workspace-shell {
+  padding-top: 0 !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap,
+body #content-root .workspace-shell > .panel-popup-wrap.open,
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed,
+body #content-root .workspace-shell.panel-menu-floating > .panel-popup-wrap.floating-open,
+body #content-root .workspace-shell.settings-menu-open > .panel-popup-wrap.open,
+body #content-root .workspace-shell.settings-menu-open > .panel-popup-wrap.collapsed {
+  position: relative !important;
+  inset: auto !important;
+  right: auto !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 2;
+  display: block;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 0 18px !important;
+  box-sizing: border-box;
+  transform: none !important;
+  overflow: visible;
+  border-radius: 17px;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.open,
+body #content-root .workspace-shell > .panel-popup-wrap.floating-open {
+  padding: 15px 16px 16px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed {
+  padding: 11px 16px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 48px !important;
+  gap: 14px !important;
+  direction: rtl !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  display: none !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 7px 10px !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions {
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  width: auto !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions [data-panel-refresh] {
+  display: none !important;
+}
+body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions .panel-popup-toggle {
+  position: static !important;
+  margin: 0 !important;
+}
+body #content-root .workspace-shell > .workspace-layout {
+  margin-top: 0 !important;
+}
+
+@media (max-width: 720px) {
+  body #content-root .project-strip-wrap.collapsed .project-strip-current { max-width: none; }
+  body #content-root .workspace-shell > .panel-popup-wrap.open,
+  body #content-root .workspace-shell > .panel-popup-wrap.floating-open { padding: 12px !important; }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed { padding: 9px 12px !important; }
+  body #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head { gap: 8px !important; }
+}
+
+/* The settings rail belongs to the workspace section below the panel card.
+   Make that section the containing block so its minimized shortcut cannot
+   jump back to the shell's top and overlap the panel selector. */
+body #content-root .workspace-shell > .workspace-layout {
+  position: relative !important;
+}
+body #content-root .workspace-shell > .workspace-layout > .settings-tree-column.minimized {
+  top: 0 !important;
+}
+
+/* FINAL FLOW OVERRIDE — no workspace card may float over the detail page. */
+body #app #content-root .workspace-shell,
+body #app #content-root .workspace-shell > .workspace-layout,
+body #app #content-root .workspace-shell > .workspace-layout > .settings-tree-column,
+body #app #content-root .workspace-shell > .workspace-layout > .settings-tree-column.minimized,
+body #app #content-root .workspace-shell > .workspace-layout > .setting-detail-column,
+body #app #content-root .workspace-shell > .panel-popup-wrap {
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  float: none !important;
+  transform: none !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 0 18px !important;
+  padding: 15px 16px 16px !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 11px 16px !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout {
+  display: grid !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  grid-template-columns: minmax(0, 1fr) minmax(292px, 320px) !important;
+  grid-template-areas: "detail settings" !important;
+  gap: 15px !important;
+  align-items: start !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized,
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .setting-detail-column {
+  order: initial !important;
+  width: 100% !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+  order: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 11px 16px !important;
+  overflow: hidden !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .setting-detail-column {
+  order: 1 !important;
+}
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .workspace-layout,
+  body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+  }
+}
+
+/* Final direction rules: in Persian the settings card is on the left; in
+   English the two columns mirror naturally. */
+html[dir="rtl"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+  grid-template-areas: "settings detail" !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+  grid-template-areas: "detail settings" !important;
+}
+
+/* Keep the project-panel title visible in the minimized panel rail. */
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  direction: rtl !important;
+  gap: 12px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  display: flex !important;
+  align-items: center !important;
+  flex: 1 1 30% !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding: 0 !important;
+  text-align: right !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title .eyebrow,
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title p {
+  display: none !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title > div {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  text-align: right !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title h3 {
+  display: block !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: var(--read-primary, #34475a) !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  flex: 1 1 42% !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions {
+  flex: 0 0 auto !important;
+}
+
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    gap: 8px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title h3 {
+    font-size: 12px !important;
+  }
+}
+
+/* Minimized panel rail order: title → selected panel → toggle at the upper
+   left corner in RTL. The LTR version mirrors the same composition. */
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  min-height: 48px !important;
+  padding-left: 44px !important;
+  direction: rtl !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  order: 1 !important;
+  flex: 0 1 32% !important;
+  min-width: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  order: 2 !important;
+  flex: 1 1 68% !important;
+  min-width: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  z-index: 2;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+  padding-left: 0 !important;
+  padding-right: 44px !important;
+  direction: ltr !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  order: 1 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  order: 2 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions {
+  left: auto !important;
+  right: 0 !important;
+}
+
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    gap: 8px !important;
+    padding-left: 40px !important;
+  }
+  html[dir="ltr"] body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head {
+    padding-left: 0 !important;
+    padding-right: 40px !important;
+  }
+}
+
+/* Compact selected-item cards beside the title. */
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 34% !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection {
+  flex: 0 1 290px !important;
+  width: auto !important;
+  max-width: 290px !important;
+  min-width: 150px !important;
+  padding: 6px 9px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection b {
+  font-size: 10px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection small,
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection em {
+  font-size: 8px !important;
+}
+
+/* The collapsed project rail uses the same title + compact green selection
+   card + corner toggle composition as the panel rail. */
+body #app #content-root .project-strip-wrap.collapsed .project-strip-head {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  min-height: 48px !important;
+  padding-left: 44px !important;
+  direction: rtl !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading {
+  display: block !important;
+  order: 1 !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  max-width: 34% !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading .eyebrow {
+  display: none !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading b {
+  display: block !important;
+  margin: 0 !important;
+  color: var(--read-primary, #34475a) !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+  display: flex !important;
+  order: 2 !important;
+  flex: 0 1 290px !important;
+  width: auto !important;
+  max-width: 290px !important;
+  min-width: 150px !important;
+  padding: 6px 9px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current b {
+  font-size: 10px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current small {
+  font-size: 8px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-actions {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  z-index: 2;
+  display: flex !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-actions .strip-back {
+  display: none !important;
+}
+html[dir="ltr"] body #app #content-root .project-strip-wrap.collapsed .project-strip-head {
+  padding-left: 0 !important;
+  padding-right: 44px !important;
+  direction: ltr !important;
+}
+html[dir="ltr"] body #app #content-root .project-strip-wrap.collapsed .project-strip-actions {
+  left: auto !important;
+  right: 0 !important;
+}
+
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-heading {
+    max-width: 38% !important;
+  }
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+    flex: 1 1 auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-head {
+    gap: 8px !important;
+    padding-left: 40px !important;
+  }
+  html[dir="ltr"] body #app #content-root .project-strip-wrap.collapsed .project-strip-head {
+    padding-left: 0 !important;
+    padding-right: 40px !important;
+  }
+}
+
+/* Shared minimized-card geometry: project and panel rails are identical. */
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed,
+body #app #content-root .project-strip-wrap.collapsed {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 0 18px !important;
+  padding: 11px 16px !important;
+  box-sizing: border-box !important;
+  border-radius: 17px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-head,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-head {
+  min-height: 48px !important;
+  height: 48px !important;
+  box-sizing: border-box !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading {
+  min-height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+  height: 37px !important;
+  min-height: 37px !important;
+  padding: 6px 9px !important;
+  box-sizing: border-box !important;
+  border-radius: 11px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection > span,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current .strip-icon {
+  width: 25px !important;
+  height: 25px !important;
+  min-width: 25px !important;
+  border-radius: 8px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection > span svg,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current .strip-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-actions,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-actions {
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-toggle,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-toggle {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+}
+
+/* Extra room for long project and panel names in the minimized rails. */
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading {
+  max-width: 32% !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+  flex: 0 1 360px !important;
+  width: 360px !important;
+  max-width: 360px !important;
+  min-width: 220px !important;
+}
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection b,
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection em,
+body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title h3,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current b,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current small,
+body #app #content-root .project-strip-wrap.collapsed .project-strip-heading b {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+@media (max-width: 1050px) and (min-width: 721px) {
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+    flex-basis: 320px !important;
+    width: 320px !important;
+    max-width: 320px !important;
+  }
+}
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-popup-title,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-heading {
+    max-width: 38% !important;
+  }
+  body #app #content-root .workspace-shell > .panel-popup-wrap.collapsed .panel-current-selection,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-current {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+}
+
+/* PROJECT/PANEL RAIL PARITY
+   The panel selector uses the same rail structure as the project selector:
+   heading -> current selection -> corner toggle. Keep the panel-specific
+   list and actions intact, but make the two outer boxes behave identically. */
+body #app #content-root .workspace-shell > .panel-selector-wrap {
+  margin: 0 0 17px !important;
+  padding: 15px 16px 12px !important;
+  background: var(--surface, #fff) !important;
+  border: 1px solid var(--line, #e8ecf2) !important;
+  border-radius: 17px !important;
+  box-shadow: 0 5px 20px rgba(26,32,56,.035) !important;
+  box-sizing: border-box !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  margin-bottom: 11px !important;
+  gap: 14px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-icon {
+  display: none !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title {
+  display: block !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title > div {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title h3 {
+  display: block !important;
+  margin: 3px 0 0 !important;
+  color: var(--read-primary, #334559) !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title p {
+  margin: 3px 0 0 !important;
+  color: var(--read-muted, #98a4b0) !important;
+  font-size: 8px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex: 0 0 auto !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-refresh-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  color: #0f8374 !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-refresh-button svg {
+  width: 12px !important;
+  height: 12px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-current-selection {
+  display: none !important;
+}
+
+/* The open panel list remains panel-specific, while its spacing starts from
+   the same project rail baseline. */
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-body {
+  padding-top: 0 !important;
+  max-height: 360px !important;
+}
+
+/* Exact collapsed composition shared with the project rail. */
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed {
+  margin: 0 0 18px !important;
+  padding: 11px 16px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  margin-bottom: 0 !important;
+  padding-left: 44px !important;
+  gap: 12px !important;
+  direction: rtl !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 32% !important;
+  min-height: 36px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title .eyebrow,
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title p {
+  display: none !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title h3 {
+  margin: 0 !important;
+  color: var(--read-primary, #34475a) !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  flex: 0 1 360px !important;
+  width: 360px !important;
+  max-width: 360px !important;
+  min-width: 220px !important;
+  height: 37px !important;
+  min-height: 37px !important;
+  margin: 0 !important;
+  padding: 6px 9px !important;
+  box-sizing: border-box !important;
+  border-radius: 11px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-actions {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  z-index: 2 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  gap: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-refresh-button {
+  display: none !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+  padding-left: 0 !important;
+  padding-right: 44px !important;
+  direction: ltr !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-actions {
+  left: auto !important;
+  right: 0 !important;
+}
+@media (max-width: 1050px) and (min-width: 721px) {
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+    flex-basis: 320px !important;
+    width: 320px !important;
+    max-width: 320px !important;
+  }
+}
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-selector-wrap,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 11px 13px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+    gap: 8px !important;
+    padding-left: 40px !important;
+  }
+  html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+    padding-left: 0 !important;
+    padding-right: 40px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title {
+    max-width: 38% !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-title h3 {
+    font-size: 12px !important;
+  }
+}
+
+/* Keep the panel toggle anchored to the same corner in both states. The
+   refresh action sits beside it only while the panel list is expanded. */
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+  position: relative !important;
+  min-height: 58px !important;
+  height: 58px !important;
+  padding-left: 84px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-actions {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 76px !important;
+  min-width: 76px !important;
+  height: 34px !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-toggle {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-refresh-button {
+  position: absolute !important;
+  top: 7px !important;
+  left: 40px !important;
+  white-space: nowrap !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-current-selection {
+  height: 46px !important;
+  min-height: 46px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+  min-height: 58px !important;
+  height: 58px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 8px 10px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-actions {
+  top: 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+  padding-left: 0 !important;
+  padding-right: 84px !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-actions {
+  left: auto !important;
+  right: 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-toggle {
+  left: auto !important;
+  right: 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-refresh-button {
+  left: auto !important;
+  right: 40px !important;
+}
+
+/* Put the configuration card on the right in Persian and mirror it to the
+   left in English. Direction is explicit here so the result is not affected
+   by the legacy RTL grid rules earlier in the stylesheet. */
+body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+  direction: ltr !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .settings-tree-column {
+  grid-area: settings !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .setting-detail-column {
+  grid-area: detail !important;
+}
+html[dir="rtl"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+  grid-template-areas: "detail settings" !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+  grid-template-areas: "settings detail" !important;
+}
+html[dir="rtl"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .settings-tree-column,
+html[dir="rtl"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .setting-detail-column {
+  direction: rtl !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .settings-tree-column,
+html[dir="ltr"] body #app #content-root .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .setting-detail-column {
+  direction: ltr !important;
+}
+
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+    min-height: 54px !important;
+    height: 54px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+    padding-left: 78px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-actions {
+    width: 70px !important;
+    min-width: 70px !important;
+  }
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-current-selection,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+  html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+    padding-left: 0 !important;
+    padding-right: 78px !important;
+  }
+}
+
+/* Expanded panel title stays anchored to the reading edge instead of being
+   centered by the shared flex header. */
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title {
+  margin-right: 0 !important;
+  margin-left: auto !important;
+  text-align: right !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title > div {
+  text-align: right !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title {
+  margin-right: auto !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title > div {
+  text-align: left !important;
+}
+
+/* The minimized settings shortcut is aligned to the same side as the
+   expanded settings column: right in Persian, left in English. */
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+  position: relative !important;
+  inset: auto !important;
+  align-self: auto !important;
+  width: min(320px, 100%) !important;
+  min-width: 220px !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+/* Negative treatment for the selected panel icon: white glyph on a solid
+   accent surface for stronger separation from the selected-panel card. */
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span {
+  color: #fff !important;
+  background: #0f8f7d !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span svg {
+  color: #fff !important;
+  stroke: currentColor !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span {
+  color: #fff !important;
+  background: #2d8277 !important;
+}
+
+/* Match the selected-panel icon to the selected-project icon treatment:
+   colored glyph on a light accent surface, including dark mode. */
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span {
+  color: #0f8b7a !important;
+  background: #dff5ee !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span svg {
+  color: #0f8b7a !important;
+  stroke: currentColor !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span {
+  color: #73d8c5 !important;
+  background: #1c4541 !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span svg {
+  color: #73d8c5 !important;
+}
+
+/* Keep the expanded panel heading as a complete right-aligned block, with
+   the project subtitle and registered-panel count directly underneath it. */
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title > div {
+  width: auto !important;
+  text-align: right !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title .eyebrow,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title h3,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title p {
+  display: block !important;
+  width: 100% !important;
+  text-align: right !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title h3 {
+  margin: 3px 0 0 !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title p {
+  margin: 4px 0 0 !important;
+}
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title > div,
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title .eyebrow,
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title h3,
+html[dir="ltr"] body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title p {
+  text-align: left !important;
+}
+
+/* Give both project and panel rails a little more vertical breathing room,
+   while keeping the selected green card narrower so the headings remain
+   readable beside it. */
+body #app #content-root .project-strip-wrap.open .project-strip-head,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+  min-height: 58px !important;
+  height: 58px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-head,
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+  min-height: 62px !important;
+  height: 62px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-current,
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+  flex-basis: 320px !important;
+  width: 320px !important;
+  max-width: 320px !important;
+  min-width: 190px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 7px 9px !important;
+}
+@media (max-width: 1050px) and (min-width: 721px) {
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-current,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+    flex-basis: 290px !important;
+    width: 290px !important;
+    max-width: 290px !important;
+  }
+}
+@media (max-width: 720px) {
+  body #app #content-root .project-strip-wrap.open .project-strip-head,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-head,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+    min-height: 58px !important;
+    height: 58px !important;
+  }
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-current,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-current-selection {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* Loop Card: keep device actions directly above the address list. */
+body #app #content-root .loop-card-setting {
+  display: flex;
+  flex-direction: column;
+}
+body #app #content-root .loop-card-setting > .loop-device-actions {
+  order: 1;
+  margin-top: 13px;
+  padding-top: 0;
+  border-top: 0;
+}
+body #app #content-root .loop-card-setting > .loop-summary {
+  order: 2;
+}
+body #app #content-root .loop-card-setting > .loop-device-scroller {
+  order: 3;
+}
+
+/* Wiring style was removed from the Loop Card UI. The selectors remain
+   data-compatible, but the obsolete column is no longer visible. */
+body #app #content-root .loop-device-head > :nth-child(4),
+body #app #content-root .loop-empty-row > :nth-child(4),
+body #app #content-root .loop-filtered-row > :nth-child(4) {
+  display: none !important;
+}
+body #app #content-root .loop-device-head,
+body #app #content-root .loop-device-row {
+  grid-template-columns: 38px 76px 110px 175px 112px 102px 112px 112px 108px minmax(190px, 1fr) !important;
+}
+body #app #content-root .loop-filter-controls [data-loop-filter-all] {
+  color: #536477 !important;
+  background: #f7fafb !important;
+  border: 1px solid #dfe8ed !important;
+}
+body #app #content-root .loop-filter-controls [data-loop-filter-all]:hover {
+  color: #0f766e !important;
+  background: #eaf8f4 !important;
+  border-color: #a9ddd2 !important;
+}
+html.dark body #app #content-root .loop-filter-controls [data-loop-filter-all] {
+  color: #dce8eb !important;
+  background: #1c2d35 !important;
+  border-color: #405762 !important;
+}
+html.dark body #app #content-root .loop-filter-controls [data-loop-filter-all]:hover {
+  color: #9ce4d5 !important;
+  background: #1d4543 !important;
+  border-color: #397c73 !important;
+}
+
+/* Address conflict dialog. It deliberately stays open until the user picks
+   either a new address or overwrite. */
+.loop-conflict-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(19, 31, 39, .44);
+  animation: loopConflictFadeIn .18s ease both;
+}
+.loop-conflict-dialog {
+  width: min(470px, 100%);
+  padding: 24px;
+  color: #4f6172;
+  background: #fff;
+  border: 1px solid #e2e9ed;
+  border-radius: 18px;
+  box-shadow: 0 22px 60px rgba(21, 40, 52, .22);
+  direction: rtl;
+  animation: loopConflictDialogIn .2s ease both;
+}
+.loop-conflict-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 13px;
+  color: #9a6911;
+  background: #fff3d5;
+  border: 1px solid #f2d58d;
+  border-radius: 13px;
+  font-size: 23px;
+  font-weight: 900;
+}
+.loop-conflict-content h3 {
+  margin: 0;
+  color: #33495c;
+  font-size: 17px;
+  font-weight: 900;
+}
+.loop-conflict-content p {
+  margin: 10px 0 0;
+  color: #708192;
+  font-size: 13px;
+  line-height: 2;
+}
+.loop-conflict-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 22px;
+}
+.loop-conflict-actions button {
+  min-height: 40px;
+  padding-inline: 15px;
+  font-size: 12px;
+}
+html[dir="ltr"] .loop-conflict-dialog {
+  direction: ltr;
+}
+@keyframes loopConflictFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes loopConflictDialogIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+html.dark .loop-conflict-modal {
+  background: rgba(4, 10, 13, .66);
+}
+html.dark .loop-conflict-dialog {
+  color: #c7d5d9;
+  background: #17242c;
+  border-color: #3c515b;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .38);
+}
+html.dark .loop-conflict-icon {
+  color: #f3ca6b;
+  background: #44391e;
+  border-color: #715d2d;
+}
+html.dark .loop-conflict-content h3 {
+  color: #eef7f7;
+}
+html.dark .loop-conflict-content p {
+  color: #afc1c5;
+}
+@media (max-width: 520px) {
+  .loop-conflict-dialog { padding: 19px; }
+  .loop-conflict-actions { flex-direction: column-reverse; }
+  .loop-conflict-actions button { width: 100%; }
+}
+
+/* FINAL RESPONSIVE QA
+   Keep cards contained at desktop, tablet and phone widths. Wide data sets
+   retain their own horizontal scroller instead of forcing the page wider. */
+*, *::before, *::after { box-sizing: border-box; }
+body, #app, .app-shell, .main-content, .content-wrap, #content-root { min-width: 0; }
+img, svg, video, canvas { max-width: 100%; }
+button, input, select, textarea { max-width: 100%; }
+
+@media (max-width: 1180px) {
+  .content-wrap { padding-inline: 24px; }
+  .workspace-shell > .workspace-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(270px, 300px) !important;
+    gap: 12px !important;
+  }
+  .workspace-shell > .panel-popup-wrap.open,
+  .workspace-shell > .panel-popup-wrap.floating-open {
+    width: min(620px, calc(100% - 322px)) !important;
+  }
+  .workspace-shell.settings-menu-open > .panel-popup-wrap.open {
+    width: min(560px, calc(100% - 330px)) !important;
+  }
+  .project-strip-current { min-width: 0; }
+  .project-strip-current > div, .panel-current-selection > div { min-width: 0; }
+  .project-strip-current b, .panel-current-selection b,
+  .project-strip-current small, .panel-current-selection em {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar { padding-inline: 18px; }
+  .topbar-end { gap: 10px; }
+  .content-wrap { padding-inline: 18px; }
+  .page-intro { gap: 16px; }
+  .workspace-shell > .workspace-layout:not(.settings-tree-minimized) {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 280px) !important;
+  }
+  .workspace-shell > .panel-popup-wrap.open,
+  .workspace-shell > .panel-popup-wrap.floating-open {
+    width: min(520px, calc(100% - 302px)) !important;
+  }
+  .workspace-shell.settings-menu-open > .panel-popup-wrap.open {
+    width: min(470px, calc(100% - 312px)) !important;
+  }
+  .group-form-grid,
+  .group-form-grid.io-group-selects,
+  .io-source-columns,
+  .group-config-layout,
+  .grouped-panels-wrap {
+    min-width: 0;
+  }
+  .group-relation-config-box {
+    grid-template-columns: 1fr !important;
+  }
+  .group-relation-config-box > .group-parameters-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    height: auto !important;
+  }
+  .group-relation-config-box > .group-relation-card,
+  .group-relation-config-box > .group-parameters-rail {
+    min-width: 0;
+  }
+  .grouped-panels-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .group-device-panel, .group-device-list, .group-device-entry { min-width: 0; }
+  .group-device-entry span:nth-child(2) { min-width: 0; }
+  .group-device-entry b, .group-device-entry small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .group-actions { flex-wrap: wrap; }
+  .group-actions > * { min-width: 120px; flex: 1 1 120px; }
+}
+
+@media (max-width: 720px) {
+  .topbar { height: auto; min-height: 72px; padding-block: 10px; }
+  .topbar-start, .topbar-end { min-width: 0; }
+  .topbar-start h1 { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-end { margin-inline-start: auto; }
+  .content-wrap { padding: 16px 12px 30px; }
+  .page-intro { margin: 17px 0; }
+  .page-intro h2 { line-height: 1.35; }
+  .project-context { min-width: 0; width: 100%; }
+  .workspace-breadcrumb { max-width: 100%; overflow-x: auto; white-space: nowrap; }
+  .workspace-shell { padding-top: 122px !important; }
+  .workspace-shell > .workspace-layout,
+  .workspace-shell > .workspace-layout:not(.settings-tree-minimized),
+  .workspace-shell.settings-menu-open > .workspace-layout:not(.settings-tree-minimized) {
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .workspace-shell > .workspace-layout > .setting-detail-column,
+  .workspace-shell > .workspace-layout > .settings-tree-column {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .workspace-shell > .workspace-layout:not(.settings-tree-minimized) > .settings-tree-column {
+    position: relative !important;
+    inset: auto !important;
+    margin-top: 12px;
+  }
+  .workspace-shell > .panel-popup-wrap.open,
+  .workspace-shell > .panel-popup-wrap.floating-open,
+  .workspace-shell.settings-menu-open > .panel-popup-wrap.open {
+    right: 0 !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 100%;
+    max-height: min(70vh, 520px);
+    overflow: hidden auto;
+  }
+  html[dir="ltr"] .workspace-shell > .panel-popup-wrap.open,
+  html[dir="ltr"] .workspace-shell > .panel-popup-wrap.floating-open,
+  html[dir="ltr"] .workspace-shell.settings-menu-open > .panel-popup-wrap.open {
+    left: 0 !important;
+    right: auto !important;
+  }
+  .workspace-shell > .panel-popup-wrap.collapsed,
+  .workspace-shell.settings-menu-open > .panel-popup-wrap.collapsed,
+  .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+    width: calc(50% - 6px) !important;
+    max-width: calc(50% - 6px);
+    height: 112px !important;
+    min-height: 112px !important;
+    padding: 10px !important;
+  }
+  .workspace-shell.menus-docked > .panel-popup-wrap.collapsed { right: calc(50% + 6px) !important; }
+  .workspace-shell.menus-docked > .workspace-layout > .settings-tree-column.minimized { right: 0 !important; }
+  html[dir="ltr"] .workspace-shell.menus-docked > .panel-popup-wrap.collapsed { left: calc(50% + 6px) !important; right: auto !important; }
+  html[dir="ltr"] .workspace-shell.menus-docked > .workspace-layout > .settings-tree-column.minimized { left: 0 !important; right: auto !important; }
+  .project-strip-wrap { width: 100%; max-width: 100%; overflow: hidden; }
+  .project-strip-wrap .project-strip-head,
+  .workspace-shell > .panel-popup-wrap .panel-popup-head {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .project-strip-wrap.open .project-strip-head,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-head {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    height: auto !important;
+    min-height: 58px !important;
+    gap: 8px !important;
+  }
+  .project-strip-wrap.open .project-strip-heading,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-title {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    justify-content: flex-start !important;
+    min-width: 0;
+    text-align: start !important;
+  }
+  .project-strip-wrap.open .project-strip-current,
+  .workspace-shell > .panel-popup-wrap.open .panel-current-selection {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  .project-strip-wrap.open .project-strip-actions,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-actions {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    justify-content: flex-end !important;
+    min-width: 0;
+  }
+  .project-strip-wrap.open .project-strip-heading b,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-title h3,
+  .project-strip-current b,
+  .panel-current-selection b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sub-card, .detail-card, .panel-card, .group-setting { padding: 14px !important; }
+  .sub-card-head, .card-heading, .detail-header { align-items: stretch; gap: 10px; }
+  .sub-card-head > div, .card-heading > div, .detail-header > div { min-width: 0; flex: 1 1 auto; }
+  .sub-card-head p, .card-heading p, .detail-header p { overflow-wrap: anywhere; }
+  .loop-card-picker, .loop-type-counts, .io-source-columns, .grouped-panels-wrap { grid-template-columns: 1fr !important; }
+  .loop-toolbar, .loop-toolbar-actions, .loop-filter-controls { align-items: stretch; }
+  .loop-toolbar-actions > *, .loop-filter-controls > *, .loop-filter-controls label { width: 100%; min-width: 0; }
+  .loop-filter-controls label { display: grid; gap: 5px; }
+  .loop-filter-controls select, .loop-add-select { width: 100%; min-width: 0; }
+  .loop-add-panel { grid-template-columns: 1fr !important; }
+  .loop-add-button { width: 100%; }
+  .loop-summary { align-items: stretch; flex-direction: column; gap: 6px; }
+  .loop-device-actions { align-items: stretch; }
+  .loop-device-actions > * { flex: 1 1 120px; }
+  .group-relation-config-box { padding: 10px !important; }
+  .group-relation-config-box > .group-parameters-rail { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .group-relation-config-box > .group-parameters-rail .group-field,
+  .group-relation-config-box > .group-parameters-rail .group-switch-field { height: auto !important; min-height: 76px; }
+  .group-device-columns, .group-config-layout { grid-template-columns: 1fr !important; }
+  .group-panel-head, .group-relation-head, .saved-io-relations-head { align-items: flex-start; }
+  .group-panel-head > div, .group-relation-head > div, .saved-io-relations-head > div { min-width: 0; }
+  .group-panel-head small, .group-relation-head small, .saved-io-relation-summary { overflow-wrap: anywhere; }
+  .group-actions > *, .group-member-actions > * { flex: 1 1 130px; min-width: 0; }
+  .saved-io-relations { margin-top: 10px; padding: 12px !important; }
+  .saved-io-relation { grid-template-columns: 1fr; gap: 7px; }
+  .saved-io-relation-groups { justify-content: flex-start; }
+}
+
+@media (max-width: 430px) {
+  .content-wrap { padding-inline: 9px; }
+  .topbar { padding-inline: 10px; }
+  .topbar-start h1 { max-width: 38vw; font-size: 17px; }
+  .notification-button, .icon-button { width: 34px; height: 34px; }
+  .workspace-shell { padding-top: 118px !important; }
+  .workspace-shell > .panel-popup-wrap.collapsed,
+  .workspace-shell.settings-menu-open > .panel-popup-wrap.collapsed,
+  .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px);
+    height: 104px !important;
+    min-height: 104px !important;
+    padding: 8px !important;
+  }
+  .workspace-shell.menus-docked > .panel-popup-wrap.collapsed { right: calc(50% + 4px) !important; }
+  html[dir="ltr"] .workspace-shell.menus-docked > .panel-popup-wrap.collapsed { left: calc(50% + 4px) !important; }
+  .project-strip-wrap.open .project-strip-head,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-head { padding-inline: 0 !important; }
+  .project-strip-wrap.open .project-strip-heading b,
+  .workspace-shell > .panel-popup-wrap.open .panel-popup-title h3 { font-size: 14px !important; }
+  .group-relation-config-box > .group-parameters-rail { grid-template-columns: 1fr !important; }
+  .group-actions > *, .group-member-actions > * { flex-basis: 100%; }
+  .saved-io-relation-groups { flex-wrap: wrap; }
+}
+
+/* Final rail polish: a little more height for both selectors and a neutral
+   control color for the panel toggle. */
+body #app #content-root .project-strip-wrap.open .project-strip-head,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head {
+  min-height: 66px !important;
+  height: 66px !important;
+}
+body #app #content-root .project-strip-wrap.collapsed .project-strip-head,
+body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+  min-height: 70px !important;
+  height: 70px !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle {
+  color: #526678 !important;
+  background: #eef2f5 !important;
+  border: 1px solid #d7e0e6 !important;
+  box-shadow: 0 2px 6px rgba(39,60,75,.08) !important;
+}
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle:hover {
+  color: #344b5d !important;
+  background: #e4eaee !important;
+  border-color: #bfcbd3 !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap {
+  color: #dce8eb !important;
+  background: #17242c !important;
+  border-color: #2d404a !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2) !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title h3 {
+  color: #dce8eb !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title .eyebrow,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-title p {
+  color: #91a2ad !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection {
+  color: #dce8eb !important;
+  background: #1b4542 !important;
+  border-color: #397c73 !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection b {
+  color: #dce8eb !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection small,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection em {
+  color: #a8bbc0 !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle {
+  color: #dce8eb !important;
+  background: #2b3a44 !important;
+  border-color: #4a5c68 !important;
+  box-shadow: 0 2px 7px rgba(0,0,0,.24) !important;
+}
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle:hover {
+  color: #ffffff !important;
+  background: #354954 !important;
+  border-color: #6a7c87 !important;
+}
+@media (max-width: 720px) {
+  body #app #content-root .project-strip-wrap.open .project-strip-head,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-head,
+  body #app #content-root .project-strip-wrap.collapsed .project-strip-head,
+  body #app #content-root .workspace-shell > .panel-selector-wrap.collapsed .panel-popup-head {
+    min-height: 64px !important;
+    height: 64px !important;
+  }
+}
+
+/* Shared toggle treatment: the panel control must match the project control
+   in both themes instead of using the old green panel-specific treatment. */
+body #app #content-root .project-strip-toggle,
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle {
+  color: #5e6b7d !important;
+  background: #fff !important;
+  border: 1px solid #e7ebf1 !important;
+  box-shadow: none !important;
+}
+body #app #content-root .project-strip-toggle:hover,
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle:hover {
+  color: #0f766e !important;
+  background: #eefbf8 !important;
+  border-color: #b8e4da !important;
+}
+html.dark body #app #content-root .project-strip-toggle,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle {
+  color: #dce8eb !important;
+  background: #17242c !important;
+  border-color: #2d404a !important;
+  box-shadow: none !important;
+}
+html.dark body #app #content-root .project-strip-toggle:hover,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-popup-toggle:hover {
+  color: #66d3c0 !important;
+  background: #1d3438 !important;
+  border-color: #3a756f !important;
+}
+
+/* Complete dark-mode coverage for the selected project and selected panel
+   cards. These rules intentionally come last so light-theme declarations
+   cannot leak through the high-specificity layout overrides. */
+html.dark body #app #content-root .project-strip-wrap .project-strip-current,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection {
+  color: #dce8eb !important;
+  background: #1b4542 !important;
+  border-color: #397c73 !important;
+}
+html.dark body #app #content-root .project-strip-wrap .project-strip-current b,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection b {
+  color: #dce8eb !important;
+}
+html.dark body #app #content-root .project-strip-wrap .project-strip-current small,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection small,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection em {
+  color: #a8bbc0 !important;
+}
+html.dark body #app #content-root .project-strip-wrap .project-strip-current .strip-icon,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection > span {
+  color: #73d8c5 !important;
+  background: #245852 !important;
+}
+
+/* Keep the minimized settings card equal in height to the two selector rails
+   above it. The inner heading uses the same rail height so no content leaks
+   outside the card. */
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+  height: 94px !important;
+  min-height: 94px !important;
+  box-sizing: border-box !important;
+  padding: 11px 16px !important;
+}
+body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized .column-heading {
+  height: 70px !important;
+  min-height: 70px !important;
+  box-sizing: border-box !important;
+}
+
+/* Expanded rails only need their primary heading; the eyebrow/count
+   subtitles are redundant once the list itself is visible. */
+body #app #content-root .project-strip-wrap.open .project-strip-heading .eyebrow,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title .eyebrow,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title p {
+  display: none !important;
+}
+body #app #content-root .project-strip-wrap.open .project-strip-heading b,
+body #app #content-root .workspace-shell > .panel-selector-wrap.open .panel-popup-title h3 {
+  margin-top: 0 !important;
+  font-weight: 900 !important;
+}
+@media (max-width: 720px) {
+  body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized {
+    height: 88px !important;
+    min-height: 88px !important;
+  }
+  body #app #content-root .workspace-shell > .workspace-layout.settings-tree-minimized > .settings-tree-column.minimized .column-heading {
+    height: 64px !important;
+    min-height: 64px !important;
+  }
+}
+
+/* Selected project/panel cards: remove the secondary caption and emphasize
+   the actual selected name. */
+body #app #content-root .project-strip-wrap .project-strip-current small,
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection small {
+  display: none !important;
+}
+body #app #content-root .project-strip-wrap .project-strip-current b,
+body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection b {
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  line-height: 1.3 !important;
+}
+html.dark body #app #content-root .project-strip-wrap .project-strip-current b,
+html.dark body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection b {
+  color: #f0f7f8 !important;
+}
+@media (max-width: 720px) {
+  body #app #content-root .project-strip-wrap .project-strip-current b,
+  body #app #content-root .workspace-shell > .panel-selector-wrap .panel-current-selection b {
+    font-size: 14px !important;
+  }
 }

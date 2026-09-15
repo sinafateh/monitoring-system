@@ -16,6 +16,7 @@ const icons = {
   calendar: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
   clock: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
   chevronDown: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`,
+  chevronUp: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>`,
   chevronLeft: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>`,
   chevronRight: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`,
@@ -126,8 +127,8 @@ const state = {
   holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
   selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
   view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
-  panelMenuOpen: false, panelMenuFloating: false, settingsTreeCollapsed: true,
-  selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopCards: [],
+  projectMenuOpen: true, panelMenuOpen: false, settingsTreeCollapsed: true,
+  selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopAddressConflict: null, loopCards: [],
   groupTab: "zone", zoneGroupNumber: 1, zoneLoopCardId: "loop-1", zonePreAlarm: {}, zoneGroups: {},
   ioInputGroupNumber: 1, ioOutputGroupNumber: 1, ioLoopCardId: "loop-1", ioGroups: {}, ioInputGroups: {}, ioOutputGroups: {}, ioRelations: {}, ioSavedRelations: {}, groupSelectedDeviceKey: null, groupPreviewOpen: false,
   language: localStorage.getItem("fire-panel-language") || "fa",
@@ -502,17 +503,25 @@ function renderProjectCard(project) {
 }
 
 function renderProjectStrip(project) {
-  return `<div class="project-strip-wrap"><div class="project-strip-head"><div><span class="eyebrow">پروژه‌های فعال</span><b>پروژه‌ها</b></div><button type="button" class="strip-back" data-back-projects>${icons.chevronRight}همه پروژه‌ها</button></div><div class="project-strip">${projects.map((item) => `<button type="button" class="project-strip-item${item.id === project.id ? " active" : ""}" data-project-id="${item.id}"><span class="strip-icon">${icons.project}</span><span><b>${item.name}</b><small>${faDigits(item.panels.length)} پنل · ${item.status}</small></span>${item.id === project.id ? `<i class="strip-check">${icons.check}</i>` : ""}</button>`).join("")}</div></div>`;
+  const english = state.language === "en";
+  return `<div class="project-strip-wrap${state.projectMenuOpen ? " open" : " collapsed"}">
+    <div class="project-strip-head">
+      <div class="project-strip-heading"><span class="eyebrow">${english ? "ACTIVE PROJECTS" : "پروژه‌های فعال"}</span><b>${english ? "Projects" : "پروژه‌ها"}</b></div>
+      <div class="project-strip-current"><span class="strip-icon">${icons.project}</span><span><b>${project.name}</b><small>${faDigits(project.panels.length)} ${english ? "panels" : "پنل"} · ${project.status}</small></span></div>
+      <div class="project-strip-actions"><button type="button" class="strip-back" data-back-projects>${icons.chevronRight}${english ? "All projects" : "همه پروژه‌ها"}</button><button type="button" class="icon-button small-icon project-strip-toggle" data-project-menu-toggle aria-expanded="${state.projectMenuOpen}" aria-label="${state.projectMenuOpen ? (english ? "Minimize projects" : "مینیمایز کردن پروژه‌ها") : (english ? "Expand projects" : "باز کردن پروژه‌ها")}">${state.projectMenuOpen ? icons.chevronUp : icons.chevronDown}</button></div>
+    </div>
+    <div class="project-strip">${projects.map((item) => `<button type="button" class="project-strip-item${item.id === project.id ? " active" : ""}" data-project-id="${item.id}"><span class="strip-icon">${icons.project}</span><span><b>${item.name}</b><small>${faDigits(item.panels.length)} ${english ? "panels" : "پنل"} · ${item.status}</small></span>${item.id === project.id ? `<i class="strip-check">${icons.check}</i>` : ""}</button>`).join("")}</div>
+  </div>`;
 }
 
 function renderPanelList(project, panel) {
   const english = state.language === "en";
   const panelConnection = state.connectedPanelId === panel.id;
-  return `<section class="panel-popup-wrap${state.panelMenuOpen ? " open" : " collapsed"}${state.panelMenuFloating ? " floating-open" : ""}" aria-label="${english ? "Project panels" : "پنل‌های پروژه"}">
-    <div class="panel-popup-head">
-      <div class="panel-popup-title"><span class="panel-popup-icon">${icons.panel}</span><div><span class="eyebrow">${english ? "PROJECT PANELS" : "پنل‌های پروژه"}</span><h3>${english ? "Panels in this project" : "پنل‌های این پروژه"}</h3><p>${faDigits(project.panels.length)} ${english ? "registered panels" : "پنل ثبت‌شده"}</p></div></div>
-      <div class="panel-current-selection"><span>${icons.check}</span><div><small>${english ? "Selected panel" : "پنل انتخاب‌شده"}</small><b>${panel.name}</b><em>${panel.code}${panelConnection ? ` · ${english ? "Connected" : "متصل"}` : ""}</em></div></div>
-      <div class="panel-popup-actions"><button type="button" class="icon-button small-icon" data-panel-refresh aria-label="${english ? "Refresh panels" : "به‌روزرسانی پنل‌ها"}">${icons.refresh}</button><button type="button" class="icon-button small-icon panel-popup-toggle" data-panel-menu-toggle aria-expanded="${state.panelMenuOpen}" aria-label="${state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")}">${state.panelMenuOpen ? icons.chevronRight : icons.chevronLeft}</button></div>
+  return `<section class="project-strip-wrap panel-popup-wrap panel-selector-wrap${state.panelMenuOpen ? " open" : " collapsed"}" aria-label="${english ? "Project panels" : "پنل‌های پروژه"}">
+    <div class="project-strip-head panel-popup-head">
+      <div class="project-strip-heading panel-popup-title"><span class="panel-popup-icon">${icons.panel}</span><div><span class="eyebrow">${english ? "PROJECT PANELS" : "پنل‌های پروژه"}</span><h3>${english ? "Panels in this project" : "پنل‌های این پروژه"}</h3><p>${faDigits(project.panels.length)} ${english ? "registered panels" : "پنل ثبت‌شده"}</p></div></div>
+      <div class="project-strip-current panel-current-selection"><span>${icons.panel}</span><div><small>${english ? "Selected panel" : "پنل انتخاب‌شده"}</small><b>${panel.name}</b><em>${panel.code}${panelConnection ? ` · ${english ? "Connected" : "متصل"}` : ""}</em></div></div>
+      <div class="project-strip-actions panel-popup-actions"><button type="button" class="strip-back panel-refresh-button" data-panel-refresh aria-label="${english ? "Refresh panels" : "به‌روزرسانی پنل‌ها"}">${icons.refresh}${english ? "Refresh" : "به‌روزرسانی"}</button><button type="button" class="icon-button small-icon project-strip-toggle panel-popup-toggle" data-panel-menu-toggle aria-expanded="${state.panelMenuOpen}" aria-label="${state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")}">${state.panelMenuOpen ? icons.chevronUp : icons.chevronDown}</button></div>
     </div>
     <div class="panel-popup-body"><div class="panel-popup-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? (english ? "Connected" : "متصل") : (english ? "Offline" : item.status)}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button><button type="button" class="panel-connect-button ${itemConnected ? "connected" : ""}" data-connect-panel="${item.id}">${itemConnected ? icons.check + (english ? "Disconnect" : "قطع اتصال") : icons.wifi + (english ? "Connect" : "اتصال")}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>${english ? "Add a new panel" : "پنل جدید اضافه کنید"}</b><small>${english ? "Panel connection is coming next" : "اتصال پنل در نسخه بعدی"}</small></span></div></div>
   </section>`;
@@ -636,7 +645,7 @@ function renderLoopCardSetting() {
   const typeLabel = (key) => { const type = loopDeviceTypes.find((item) => item.key === key) || loopDeviceTypes[0]; return english ? type.en : type.fa; };
   const categoryLabel = (key) => ({ relay: english ? "Relay" : "رله", control: english ? "Control" : "کنترل", other: english ? "Other" : "سایر", "cl-b-s-b": "CL-B-S-B", "cl-b-s-c": "CL-B-S-C" }[key] || key);
   const selectOptions = (options, selected) => options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  const field = (device, name, content) => name === "location" ? `<input type="text" value="${content}" data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>` : `<select data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>${content}</select>`;
+  const field = (device, name, content) => name === "style" ? "" : name === "location" ? `<input type="text" value="${content}" data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>` : `<select data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>${content}</select>`;
   const renderDeviceRow = (device) => `<div class="loop-device-row${state.selectedLoopDeviceId === device.id ? " selected" : ""}"><label class="loop-row-selector"><input type="radio" name="loop-device-select" data-loop-device-select="${device.id}" ${state.selectedLoopDeviceId === device.id ? "checked" : ""}${disabledAttr}><span></span></label><div class="loop-number">${faDigits(device.number)}</div>${field(device, "enabled", selectOptions([["enabled", english ? "Enable" : "فعال"], ["disabled", english ? "Disable" : "غیرفعال"]], device.enabled ? "enabled" : "disabled"))}${field(device, "style", selectOptions([["class-b", "Class B"], ["class-a", "Class A"]], device.style))}${field(device, "type", loopDeviceTypes.map((type) => [type.key, english ? type.en : type.fa]).map(([value, label]) => `<option value="${value}" ${device.type === value ? "selected" : ""}>${label}</option>`).join(""))}${field(device, "category", selectOptions(loopCategories.map((item) => [item, categoryLabel(item)]), device.category))}${field(device, "inputType", selectOptions([["alarm", "Alarm"], ["supervisory", "Supervisory"]], device.inputType || "alarm"))}${field(device, "deactivation", selectOptions([["silence", english ? "Silence" : "سایلنس"], ["reset", english ? "Reset" : "ریست"], ["auto-reset", english ? "Auto Reset" : "اتو ریست"]], device.deactivation || "silence"))}${field(device, "sensitivity", selectOptions([["low", english ? "Low" : "کم"], ["medium", english ? "Medium" : "متوسط"], ["high", english ? "High" : "زیاد"]], device.sensitivity))}${field(device, "nightMode", selectOptions([["day", english ? "Day" : "روز"], ["night", english ? "Night" : "شب"]], device.nightMode))}${field(device, "location", device.location || "")}</div>`;
   const renderEmptyRow = (address) => `<div class="loop-device-row loop-empty-row"><span></span><button type="button" class="loop-empty-address" data-loop-empty-address="${address}"${disabledAttr}>${faDigits(address)}</button><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>${english ? "Empty slot" : "خانه خالی"}</span></div>`;
   const renderFilteredRow = (device) => `<div class="loop-device-row loop-filtered-row"><span></span><span class="loop-number">${faDigits(device.number)}</span><span class="loop-filtered-label">${english ? "Filtered" : "فیلتر شده"}</span><span>—</span><span>${typeLabel(device.type)}</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span></div>`;
@@ -773,6 +782,50 @@ function setLoopAddError(message) {
   if (error) error.textContent = message;
 }
 
+function closeLoopAddressConflict() {
+  document.querySelector(".loop-conflict-modal")?.remove();
+  state.loopAddressConflict = null;
+}
+
+function showLoopAddressConflictModal(card, existingDevice, address, typeKey) {
+  closeLoopAddressConflict();
+  state.loopAddressConflict = { cardId: card.id, existingDeviceId: existingDevice.id, address, typeKey };
+  const english = state.language === "en";
+  const type = loopDeviceTypes.find((item) => item.key === existingDevice.type) || loopDeviceTypes[0];
+  const deviceName = english ? type.en : type.fa;
+  const modal = document.createElement("div");
+  modal.className = "loop-conflict-modal";
+  modal.setAttribute("role", "presentation");
+  modal.innerHTML = `<div class="loop-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="loop-conflict-title"><div class="loop-conflict-icon">!</div><div class="loop-conflict-content"><h3 id="loop-conflict-title">${english ? "Device address is already occupied" : "این آدرس قبلاً استفاده شده است"}</h3><p>${english ? `${deviceName} is already assigned to address ${address}. Would you like to change the address or overwrite the existing device?` : `دیوایس «${deviceName}» در آدرس ${faDigits(address)} قرار دارد. آیا آدرس را تغییر می‌دهید یا دیوایس قبلی را جایگزین می‌کنید؟`}</p></div><div class="loop-conflict-actions"><button type="button" class="btn-secondary" data-loop-conflict-change>${english ? "Change address" : "تغییر آدرس"}</button><button type="button" class="btn-primary" data-loop-conflict-overwrite>${english ? "Overwrite" : "جایگزینی"}</button></div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector("[data-loop-conflict-change]")?.addEventListener("click", () => {
+    closeLoopAddressConflict();
+    const input = document.querySelector("[data-loop-address-input]");
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+  });
+  modal.querySelector("[data-loop-conflict-overwrite]")?.addEventListener("click", () => {
+    const conflict = state.loopAddressConflict;
+    const targetCard = state.loopCards.find((item) => item.id === conflict?.cardId);
+    const target = targetCard?.devices.find((item) => item.id === conflict?.existingDeviceId);
+    if (!targetCard || !target) {
+      closeLoopAddressConflict();
+      return;
+    }
+    const replacement = makeLoopDevice(targetCard.id, conflict.address, conflict.typeKey, { id: target.id, location: target.location });
+    Object.assign(target, replacement);
+    state.selectedLoopCardId = targetCard.id;
+    state.selectedLoopDeviceId = target.id;
+    state.loopDeviceFilter = "all";
+    state.loopAddError = "";
+    closeLoopAddressConflict();
+    redrawLoopCardSetting();
+    showToast(english ? "The existing device was overwritten." : "دیوایس قبلی با موفقیت جایگزین شد.");
+  });
+}
+
 function bindLoopCardEvents() {
   const root = document.querySelector(".loop-card-setting");
   if (!root) return;
@@ -848,11 +901,12 @@ function bindLoopCardEvents() {
       setLoopAddError(state.language === "en" ? "Device address must be between 1 and 254." : "آدرس دیوایس باید بین ۱ تا ۲۵۴ باشد.");
       return;
     }
-    if (occupied.has(address)) {
-      setLoopAddError(state.language === "en" ? `Address ${address} is already assigned to a device.` : `آدرس ${faDigits(address)} قبلاً به یک دیوایس اختصاص داده شده است.`);
+    const typeKey = root.querySelector("[data-loop-new-type]")?.value || loopDeviceTypes[0].key;
+    const existingDevice = card.devices.find((device) => Number(device.number) === address);
+    if (existingDevice) {
+      showLoopAddressConflictModal(card, existingDevice, address, typeKey);
       return;
     }
-    const typeKey = root.querySelector("[data-loop-new-type]")?.value || loopDeviceTypes[0].key;
     const device = makeLoopDevice(card.id, address, typeKey, { location: "آدرس جدید دیوایس" });
     card.devices.push(device);
     state.loopDeviceFilter = "all";
@@ -1039,12 +1093,21 @@ function groupConnectionGuard() {
 
 function arrangeIoGroupLayout() {
   const root = document.querySelector(".io-group-setting");
-  const sourceColumns = root?.querySelector(".io-source-columns");
-  const inputPanel = sourceColumns?.querySelector(".group-device-panel:first-child");
-  const outputPanel = sourceColumns?.querySelector(".group-device-panel:nth-child(2)");
   const relationCard = root?.querySelector(".group-relation-card");
-  if (sourceColumns && inputPanel && outputPanel && relationCard && relationCard.parentElement !== sourceColumns) outputPanel.after(relationCard);
   splitIoGroupedPanels();
+  const configLayout = root?.querySelector(".group-config-layout");
+  const groupedPanels = configLayout?.querySelector(".grouped-panels-wrap");
+  if (configLayout && groupedPanels && relationCard) {
+    let relationConfigBox = configLayout.querySelector(":scope > .group-relation-config-box");
+    if (!relationConfigBox) {
+      relationConfigBox = document.createElement("div");
+      relationConfigBox.className = "group-relation-config-box";
+      groupedPanels.after(relationConfigBox);
+    }
+    if (relationCard.parentElement !== relationConfigBox) relationConfigBox.append(relationCard);
+    const parametersRail = configLayout.querySelector(":scope > .group-parameters-rail");
+    if (parametersRail && parametersRail.parentElement !== relationConfigBox) relationConfigBox.append(parametersRail);
+  }
   mountSavedIoRelations(root);
 }
 
@@ -1052,6 +1115,9 @@ function mountSavedIoRelations(root) {
   const rail = root?.querySelector(".group-parameters-rail");
   if (!rail) return;
   rail.querySelector(".saved-io-relations")?.remove();
+  const relationConfigBox = root.querySelector(".group-relation-config-box");
+  const host = relationConfigBox?.parentElement || rail;
+  host.querySelector(":scope > .saved-io-relations")?.remove();
   const english = state.language === "en";
   const entries = Object.entries(state.ioSavedRelations || {});
   const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
@@ -1068,7 +1134,7 @@ function mountSavedIoRelations(root) {
   const section = document.createElement("section");
   section.className = "saved-io-relations";
   section.innerHTML = `<div class="saved-io-relations-head"><div><h4>${english ? "Saved Group Relations" : "ارتباط‌های ذخیره‌شده گروه‌ها"}</h4><small>${english ? "Saved input/output links remain visible here." : "ارتباط‌های ذخیره‌شده ورودی و خروجی همیشه در این بخش قابل مشاهده هستند."}</small></div><b>${faDigits(entries.length)}</b></div><div class="saved-io-relations-list">${content}</div>`;
-  rail.append(section);
+  host.append(section);
 }
 
 function splitIoGroupedPanels() {
@@ -1261,7 +1327,7 @@ function renderMonitoringSetting() { return `<div class="monitoring-grid"><artic
 
 function renderWorkspace(project) {
   const panel = findPanel();
-  const shellClasses = ["workspace-shell", state.panelMenuOpen ? "panel-menu-open" : "panel-menu-collapsed", state.panelMenuOpen || state.panelMenuFloating ? "panel-menu-floating" : "", state.settingsTreeCollapsed ? "settings-menu-collapsed" : "settings-menu-open", !state.panelMenuOpen && state.settingsTreeCollapsed ? "menus-docked" : ""].filter(Boolean).join(" ");
+  const shellClasses = ["workspace-shell", state.settingsTreeCollapsed ? "" : "settings-menu-open"].filter(Boolean).join(" ");
   const layoutClasses = ["workspace-layout", state.settingsTreeCollapsed ? "settings-tree-minimized" : ""].filter(Boolean).join(" ");
   return `<section class="workspace-breadcrumb"><button type="button" data-back-projects>${icons.chevronRight}پروژه‌ها</button>${icons.chevronLeft}<span>${project.name}</span>${icons.chevronLeft}<b>${panel.name}</b></section>${renderProjectStrip(project)}<section class="${shellClasses}">${renderPanelList(project, panel)}<section class="${layoutClasses}">${renderSettingsTree()}<main class="setting-detail-column">${renderSettingDetail(panel)}</main></section></section>`;
 }
@@ -1732,7 +1798,6 @@ function bindViewEvents() {
     state.selectedSettingId = "date-time";
     // Start every newly opened project with both popup menus minimized.
     state.panelMenuOpen = false;
-    state.panelMenuFloating = false;
     state.settingsTreeCollapsed = true;
     state.view = "workspace";
     renderApp();
@@ -1743,22 +1808,23 @@ function bindViewEvents() {
     state.selectedPanelId = null;
     renderApp();
   }));
+  content.querySelectorAll("[data-project-menu-toggle]").forEach((button) => button.addEventListener("click", () => {
+    state.projectMenuOpen = !state.projectMenuOpen;
+    const wrap = button.closest(".project-strip-wrap");
+    wrap?.classList.toggle("open", state.projectMenuOpen);
+    wrap?.classList.toggle("collapsed", !state.projectMenuOpen);
+    button.setAttribute("aria-expanded", String(state.projectMenuOpen));
+    button.setAttribute("aria-label", state.projectMenuOpen ? (state.language === "en" ? "Minimize projects" : "مینیمایز کردن پروژه‌ها") : (state.language === "en" ? "Expand projects" : "باز کردن پروژه‌ها"));
+    button.innerHTML = state.projectMenuOpen ? icons.chevronUp : icons.chevronDown;
+  }));
   content.querySelectorAll("[data-panel-menu-toggle]").forEach((button) => button.addEventListener("click", () => {
-    const wasClosed = !state.panelMenuOpen;
     state.panelMenuOpen = !state.panelMenuOpen;
-    state.panelMenuFloating = state.panelMenuOpen;
     const popup = button.closest(".panel-popup-wrap");
-    const workspace = popup?.closest(".workspace-shell");
     popup?.classList.toggle("open", state.panelMenuOpen);
     popup?.classList.toggle("collapsed", !state.panelMenuOpen);
-    popup?.classList.toggle("floating-open", state.panelMenuFloating);
-    workspace?.classList.toggle("panel-menu-floating", state.panelMenuFloating);
-    workspace?.classList.toggle("panel-menu-open", state.panelMenuOpen);
-    workspace?.classList.toggle("menus-docked", !state.panelMenuOpen && state.settingsTreeCollapsed);
-    workspace?.classList.toggle("panel-menu-collapsed", !state.panelMenuOpen);
     button.setAttribute("aria-expanded", String(state.panelMenuOpen));
     button.setAttribute("aria-label", state.panelMenuOpen ? (state.language === "en" ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (state.language === "en" ? "Expand panels" : "باز کردن پنل‌ها"));
-    button.innerHTML = state.panelMenuOpen ? icons.chevronRight : icons.chevronLeft;
+    button.innerHTML = state.panelMenuOpen ? icons.chevronUp : icons.chevronDown;
   }));
   content.querySelectorAll("[data-settings-collapse]").forEach((button) => button.addEventListener("click", () => {
     state.settingsTreeCollapsed = !state.settingsTreeCollapsed;
@@ -1767,10 +1833,7 @@ function bindViewEvents() {
     const workspace = tree?.closest(".workspace-shell");
     tree?.classList.toggle("minimized", state.settingsTreeCollapsed);
     layout?.classList.toggle("settings-tree-minimized", state.settingsTreeCollapsed);
-    workspace?.classList.toggle("settings-menu-collapsed", state.settingsTreeCollapsed);
     workspace?.classList.toggle("settings-menu-open", !state.settingsTreeCollapsed);
-    workspace?.classList.toggle("menus-docked", !state.panelMenuOpen && state.settingsTreeCollapsed);
-    workspace?.classList.toggle("panel-menu-floating", state.panelMenuFloating);
     button.setAttribute("aria-expanded", String(!state.settingsTreeCollapsed));
     button.setAttribute("aria-label", state.settingsTreeCollapsed ? (state.language === "en" ? "Expand panel configuration" : "باز کردن پیکربندی پنل") : (state.language === "en" ? "Minimize panel configuration" : "مینیمایز کردن پیکربندی پنل"));
     button.innerHTML = state.settingsTreeCollapsed ? icons.chevronLeft : icons.chevronRight;
