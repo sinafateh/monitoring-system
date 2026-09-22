@@ -4,6 +4,7 @@ let activeLanguage = localStorage.getItem("fire-panel-language") || "fa";
 const faDigits = (value) => String(value).replace(/\d/g, (digit) => activeLanguage === "en" ? digit : "۰۱۲۳۴۵۶۷۸۹"[digit]);
 const enDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit));
 const pad = (value) => String(value).padStart(2, "0");
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
 
 const icons = {
   grid: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
@@ -112,6 +113,113 @@ function toGregorian(jy, jm, jd) {
 }
 
 const today = todayJalali();
+const defaultUserAccounts = [
+  { id: "admin", role: "admin", name: "admin", password: "" },
+  { id: "user-1", role: "user", name: "user1", password: "" },
+  { id: "user-2", role: "user", name: "user2", password: "" },
+  { id: "user-3", role: "user", name: "user3", password: "" },
+  { id: "user-4", role: "user", name: "user4", password: "" },
+  { id: "user-5", role: "user", name: "user5", password: "" },
+];
+const fixedPanelUserIds = new Set(defaultUserAccounts.map((user) => user.id));
+const storedPanelUserAccounts = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("fire-panel-panel-users") || "null");
+    const legacy = JSON.parse(localStorage.getItem("fire-panel-user-accounts") || "[]");
+    const source = Array.isArray(saved) ? saved : (Array.isArray(legacy) ? legacy.filter((user) => fixedPanelUserIds.has(user.id)) : []);
+    return source.length === defaultUserAccounts.length
+      ? defaultUserAccounts.map((user) => ({ ...user, ...(source.find((item) => item.id === user.id) || {}) }))
+      : defaultUserAccounts.map((user) => ({ ...user }));
+  } catch {
+    return defaultUserAccounts.map((user) => ({ ...user }));
+  }
+})();
+const storedManagedUsers = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("fire-panel-managed-users") || "null");
+    const legacy = saved === null ? JSON.parse(localStorage.getItem("fire-panel-user-accounts") || "[]") : [];
+    const source = Array.isArray(saved) ? saved : legacy.filter((user) => !fixedPanelUserIds.has(user.id));
+    return Array.isArray(source) ? source.map((user) => ({ id: user.id, role: "user", name: user.name || "", access: user.access || { all: false, projects: {} } })) : [];
+  } catch {
+    return [];
+  }
+})();
+const SETTINGS_FILES_STORAGE_KEY = "fire-panel-settings-files";
+const SETTINGS_SNAPSHOT_KEYS = [
+  "year", "month", "day", "hour", "minute",
+  "dailyDayNightEnabled", "nightStartHour", "nightStartMinute", "nightEndHour", "nightEndMinute",
+  "weekendEnabled", "weekendDay1", "weekendDay2", "holidayEnabled", "holidayYear", "holidayMonth", "holidayDay", "holidayDates",
+  "language", "userAccounts", "panelUserAccounts", "loopCards", "formValues",
+  "groupTab", "zoneGroupNumber", "zoneLoopCardId", "zonePreAlarm", "zoneGroups",
+  "ioInputGroupNumber", "ioOutputGroupNumber", "ioLoopCardId", "ioGroups", "ioInputGroups", "ioOutputGroups", "ioRelations", "ioSavedRelations"
+];
+const cloneSettingsData = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+function readSettingsFiles() {
+  try {
+    const files = JSON.parse(localStorage.getItem(SETTINGS_FILES_STORAGE_KEY) || "[]");
+    return Array.isArray(files) ? files : [];
+  } catch {
+    return [];
+  }
+}
+function persistSettingsFiles() {
+  localStorage.setItem(SETTINGS_FILES_STORAGE_KEY, JSON.stringify(state.savedSettingFiles || []));
+}
+function captureSettingsSnapshot() {
+  return SETTINGS_SNAPSHOT_KEYS.reduce((snapshot, key) => {
+    snapshot[key] = cloneSettingsData(state[key]);
+    return snapshot;
+  }, {});
+}
+function syncGenericSettingControls() {
+  const detail = document.querySelector(".detail-body");
+  if (!detail) return;
+  const controls = [...detail.querySelectorAll("[data-persist-setting]")];
+  if (!controls.length) return;
+  state.formValues ||= {};
+  state.formValues[state.selectedSettingId] = controls.map((control) => ({
+    type: control.type || control.tagName.toLowerCase(),
+    value: control.value,
+    checked: control.type === "checkbox" || control.type === "radio" ? control.checked : undefined,
+  }));
+}
+function restoreGenericSettingControls() {
+  const values = state.formValues?.[state.selectedSettingId];
+  if (!Array.isArray(values)) return;
+  const controls = [...document.querySelectorAll(".detail-body [data-persist-setting]")];
+  controls.forEach((control, index) => {
+    const saved = values[index];
+    if (!saved) return;
+    if (control.type === "checkbox" || control.type === "radio") control.checked = Boolean(saved.checked);
+    else if (saved.value !== undefined) control.value = saved.value;
+  });
+}
+function applySettingsSnapshot(snapshot) {
+  if (!snapshot) return;
+  SETTINGS_SNAPSHOT_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(snapshot, key)) state[key] = cloneSettingsData(snapshot[key]);
+  });
+  state.settingsDirty = false;
+  state.settingsBaselineSnapshot = cloneSettingsData(snapshot);
+  activeLanguage = state.language;
+  localStorage.setItem("fire-panel-language", state.language);
+  localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+  localStorage.setItem("fire-panel-panel-users", JSON.stringify(state.panelUserAccounts || defaultUserAccounts));
+}
+function createSettingsFile(name, source = "draft") {
+  const panel = findPanel();
+  const now = new Date().toISOString();
+  return {
+    id: `settings-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: name.trim(),
+    panelId: panel?.id || null,
+    panelName: panel?.name || "",
+    source,
+    createdAt: now,
+    updatedAt: now,
+    snapshot: captureSettingsSnapshot(),
+  };
+}
 const state = {
   year: today[0], month: today[1], day: today[2],
   draftYear: today[0], draftMonth: today[1], draftDay: today[2],
@@ -127,12 +235,15 @@ const state = {
   holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
   selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
   view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
-  projectMenuOpen: false, panelMenuOpen: false, settingsTreeCollapsed: true,
+  projectMenuOpen: false, panelMenuOpen: false, settingsTreeCollapsed: true, selectedManagedUserId: "admin",
+  userAccounts: storedManagedUsers,
+  panelUserAccounts: storedPanelUserAccounts,
   selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopAddressConflict: null, loopCards: [],
   groupTab: "zone", zoneGroupNumber: 1, zoneLoopCardId: "loop-1", zonePreAlarm: {}, zoneGroups: {},
   ioInputGroupNumber: 1, ioOutputGroupNumber: 1, ioLoopCardId: "loop-1", ioGroups: {}, ioInputGroups: {}, ioOutputGroups: {}, ioRelations: {}, ioSavedRelations: {}, groupSelectedDeviceKey: null, groupPreviewOpen: false, groupRelationCollapsed: false, groupConnectionWarningOpen: false,
   language: localStorage.getItem("fire-panel-language") || "fa",
   openSettingsSections: { system: true, advanced: true, gsm: true },
+  savedSettingFiles: readSettingsFiles(), selectedSavedSettingFileId: null, settingsDirty: false, settingsBaselineSnapshot: null, formValues: {},
 };
 if (localStorage.getItem("fire-panel-theme") === "dark") document.documentElement.classList.add("dark");
 
@@ -179,6 +290,87 @@ state.ioInputGroups = { 1: [] };
 state.ioOutputGroups = { 1: [] };
 state.ioRelations = { "1-1": { activeCount: 1, outputActiveFor: "fire", delay: 0, status: true } };
 state.ioSavedRelations = {};
+state.settingsBaselineSnapshot = captureSettingsSnapshot();
+
+const APP_STATE_KEYS = [...new Set([
+  ...SETTINGS_SNAPSHOT_KEYS,
+  "view", "selectedProjectId", "selectedPanelId", "selectedSettingId",
+  "sidebarCollapsed", "openSettingsSections", "savedSettingFiles", "selectedManagedUserId",
+])];
+let databasePersistenceReady = false;
+let databaseSaveTimer = null;
+
+function captureApplicationState() {
+  const persistedState = APP_STATE_KEYS.reduce((snapshot, key) => {
+    snapshot[key] = cloneSettingsData(state[key]);
+    return snapshot;
+  }, {});
+  return {
+    version: 1,
+    projects: cloneSettingsData(projects),
+    state: persistedState,
+    darkMode: document.documentElement.classList.contains("dark"),
+  };
+}
+
+function applyApplicationState(payload) {
+  if (!payload || typeof payload !== "object") return;
+  if (Array.isArray(payload.projects) && payload.projects.length) {
+    projects.splice(0, projects.length, ...cloneSettingsData(payload.projects));
+  }
+  const savedState = payload.state && typeof payload.state === "object" ? payload.state : {};
+  APP_STATE_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(savedState, key)) state[key] = cloneSettingsData(savedState[key]);
+  });
+  if (!Object.prototype.hasOwnProperty.call(savedState, "panelUserAccounts")) {
+    const legacyUsers = Array.isArray(savedState.userAccounts) ? savedState.userAccounts : [];
+    state.userAccounts = legacyUsers
+      .filter((user) => !fixedPanelUserIds.has(user.id))
+      .map((user) => ({ id: user.id, role: "user", name: user.name || "", access: user.access || { all: false, projects: {} } }));
+    state.panelUserAccounts = storedPanelUserAccounts.map((user) => ({ ...user }));
+  }
+  if (Array.isArray(savedState.savedSettingFiles)) state.savedSettingFiles = savedState.savedSettingFiles;
+  activeLanguage = state.language || "fa";
+  localStorage.setItem("fire-panel-language", activeLanguage);
+  localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+  localStorage.setItem("fire-panel-panel-users", JSON.stringify(state.panelUserAccounts || defaultUserAccounts));
+  if (payload.darkMode) document.documentElement.classList.add("dark");
+  else document.documentElement.classList.remove("dark");
+  state.settingsBaselineSnapshot = captureSettingsSnapshot();
+  state.settingsDirty = false;
+}
+
+async function loadApplicationState() {
+  try {
+    const response = await fetch("/api/state", { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`State API returned ${response.status}`);
+    const result = await response.json();
+    if (result.payload) applyApplicationState(result.payload);
+    databasePersistenceReady = true;
+    return Boolean(result.payload);
+  } catch (error) {
+    databasePersistenceReady = true;
+    console.warn("PostgreSQL state load failed; using local fallback.", error);
+    return false;
+  }
+}
+
+function queueApplicationStateSave() {
+  if (!databasePersistenceReady) return;
+  clearTimeout(databaseSaveTimer);
+  databaseSaveTimer = setTimeout(async () => {
+    try {
+      const response = await fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ payload: captureApplicationState() }),
+      });
+      if (!response.ok) throw new Error(`State API returned ${response.status}`);
+    } catch (error) {
+      console.warn("PostgreSQL state save failed; local state remains available.", error);
+    }
+  }, 350);
+}
 
 const settingsTree = [
   { id: "system", label: "سیستم", en: "System", icon: "settings", children: [
@@ -438,28 +630,10 @@ function updateSidebarState() {
   document.querySelector("#sidebar-collapse")?.setAttribute("aria-label", collapsed ? "باز کردن منو" : "جمع کردن منو");
 }
 
-function updateConnectionControl() {
-  const actions = document.querySelector(".detail-actions");
-  const panel = findPanel();
-  if (!actions || !panel) return;
-  let button = actions.querySelector("[data-connect-selected]");
-  if (!button) {
-    button = document.createElement("button");
-    button.type = "button";
-    button.dataset.connectSelected = "true";
-    actions.prepend(button);
-  }
-  const connected = state.connectedPanelId === panel.id;
-  button.className = `panel-connect-button detail-connect-button${connected ? " connected" : ""}`;
-  button.dataset.connectPanel = panel.id;
-  button.setAttribute("aria-pressed", String(connected));
-  button.innerHTML = connected
-    ? `${icons.check}${state.language === "en" ? "Disconnect panel" : "قطع اتصال پنل"}`
-    : `${icons.wifi}${state.language === "en" ? "Connect panel" : "اتصال پنل"}`;
-}
-
-function panelRequiredAttr(required) {
-  return required ? ' data-panel-required="true" aria-disabled="true"' : "";
+function panelRequiredAttr() {
+  // Drafts can be edited offline. A live connection is required only by
+  // explicit read/upload operations in the Saved Settings section.
+  return "";
 }
 
 function renderShell() {
@@ -480,6 +654,8 @@ function renderShell() {
           <p class="nav-caption nav-space">مدیریت</p>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="loop-card">${icons.panel}<span>پنل‌های من</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
+          <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="saved-settings">${icons.report}<span>تنظیمات ذخیره شده</span></button>
+          <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="user-management">${icons.user}<span>مدیریت کاربران</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="events">${icons.bell}<span>رویدادها</span><em class="warning-count">۲</em></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="report">${icons.report}<span>گزارش‌ها</span></button>
         </nav>
@@ -528,7 +704,7 @@ function renderPanelList(project, panel) {
       <div class="project-strip-current panel-current-selection"><span>${icons.panel}</span><div><small>${english ? "Selected panel" : "پنل انتخاب‌شده"}</small><b>${panel.name}</b><em>${panel.code}${panelConnection ? ` · ${english ? "Connected" : "متصل"}` : ""}</em></div></div>
       <div class="project-strip-actions panel-popup-actions"><button type="button" class="strip-back panel-refresh-button" data-panel-refresh aria-label="${english ? "Refresh panels" : "به‌روزرسانی پنل‌ها"}">${icons.refresh}${english ? "Refresh" : "به‌روزرسانی"}</button><button type="button" class="icon-button small-icon project-strip-toggle panel-popup-toggle" data-panel-menu-toggle aria-expanded="${state.panelMenuOpen}" aria-label="${state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")}">${state.panelMenuOpen ? icons.chevronUp : icons.chevronDown}</button></div>
     </div>
-    <div class="panel-popup-body"><div class="panel-popup-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? (english ? "Connected" : "متصل") : (english ? "Offline" : item.status)}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button><button type="button" class="panel-connect-button ${itemConnected ? "connected" : ""}" data-connect-panel="${item.id}">${itemConnected ? icons.check + (english ? "Disconnect" : "قطع اتصال") : icons.wifi + (english ? "Connect" : "اتصال")}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>${english ? "Add a new panel" : "پنل جدید اضافه کنید"}</b><small>${english ? "Panel connection is coming next" : "اتصال پنل در نسخه بعدی"}</small></span></div></div>
+    <div class="panel-popup-body"><div class="panel-popup-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? (english ? "Connected" : "متصل") : (english ? "Offline" : item.status)}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>${english ? "Panel connection" : "اتصال پنل"}</b><small>${english ? "Manage it from Saved Settings before reading or uploading." : "اتصال را قبل از خواندن یا آپلود، از تنظیمات ذخیره‌شده مدیریت کنید."}</small></span></div></div>
   </section>`;
 }
 
@@ -552,16 +728,14 @@ function renderSettingsTree() {
 }
 
 function renderDetailHeader(panel, settingTitle, settingEn) {
-  const isConnected = state.connectedPanelId === panel.id;
-  const panelRequired = panelRequiredAttr(!isConnected);
-  return `<section class="detail-header"><div><div class="eyebrow">${state.language === "en" ? "PANEL SETTINGS" : "تنظیمات پنل"}</div><h2>${settingTitle}</h2><p>${state.language === "en" ? "Configuration for" : "تنظیمات"} <b>${panel.name}</b> · ${panel.code}</p></div><div class="detail-actions"><button type="button" class="btn-secondary" data-read-setting${panelRequired}>${icons.refresh}${state.language === "en" ? "Read" : "خواندن"}</button><button type="button" class="btn-primary${isConnected ? "" : " disabled"}" data-save-setting${panelRequired}>${icons.check}${isConnected ? (state.language === "en" ? "Save changes" : "ذخیره تغییرات") : (state.language === "en" ? "Connect panel first" : "ابتدا پنل را متصل کنید")}</button></div></section>`;
+  return `<section class="detail-header"><div><div class="eyebrow">${state.language === "en" ? "PANEL SETTINGS" : "تنظیمات پنل"}</div><h2>${settingTitle}</h2><p>${state.language === "en" ? "Configuration for" : "تنظیمات"} <b>${panel.name}</b> · ${panel.code}</p></div></section>`;
 }
 
 function renderSettingDetail(panel) {
-  const labels = { setting: ["تنظیمات عمومی", "Setting"], "date-time": ["تاریخ و زمان", "Date & Time"], language: ["زبان رابط کاربری", "Language"], "panel-caption": ["عنوان پنل", "Panel Caption"], "password-change": ["تغییر پسورد", "Password Change"], relay: ["خروجی رله‌ها", "Relay Output"], "loop-active": ["کارت‌های لوپ فعال", "Active Loop Card"], network: ["تنظیمات شبکه", "Network"], "night-mode": ["حالت شب و روز", "Night Mode"], "loop-card": ["کارت لوپ", "Loop Card"], group: ["گروه‌بندی", "Group"], features: ["قابلیت‌ها", "Features"], events: ["رویدادها", "Events"], "remote-panel": ["پنل از راه دور", "Remote Panel"], report: ["گزارش‌ها", "Report"], gsm: ["تلفن‌کننده GSM", "GSM"], customize: ["سفارشی‌سازی تلفن‌کننده", "Customize"], location: ["موقعیت پنل", "Location"], monitoring: ["مانیتورینگ", "Monitoring"] };
+  const labels = { setting: ["تنظیمات عمومی", "Setting"], "date-time": ["تاریخ و زمان", "Date & Time"], language: ["زبان رابط کاربری", "Language"], "panel-caption": ["عنوان پنل", "Panel Caption"], "password-change": ["تغییر پسورد", "Password Change"], "saved-settings": ["تنظیمات ذخیره شده", "Saved Settings"], "user-management": ["مدیریت کاربران", "User Management"], relay: ["خروجی رله‌ها", "Relay Output"], "loop-active": ["کارت‌های لوپ فعال", "Active Loop Card"], network: ["تنظیمات شبکه", "Network"], "night-mode": ["حالت شب و روز", "Night Mode"], "loop-card": ["کارت لوپ", "Loop Card"], group: ["گروه‌بندی", "Group"], features: ["قابلیت‌ها", "Features"], events: ["رویدادها", "Events"], "remote-panel": ["پنل از راه دور", "Remote Panel"], report: ["گزارش‌ها", "Report"], gsm: ["تلفن‌کننده GSM", "GSM"], customize: ["سفارشی‌سازی تلفن‌کننده", "Customize"], location: ["موقعیت پنل", "Location"], monitoring: ["مانیتورینگ", "Monitoring"] };
   const [titleFa, titleEn] = labels[state.selectedSettingId] || labels["date-time"];
   const title = state.language === "en" ? titleEn : titleFa;
-  const body = { setting: renderSystemSetting(), "date-time": renderDateTimeSetting(), language: renderLanguageSetting(), "panel-caption": renderPanelCaptionSetting(), "password-change": renderPasswordChangeSetting(), relay: renderRelaySetting(), "loop-active": renderLoopSetting(), network: renderNetworkSetting(), "night-mode": renderNightSetting(), "loop-card": renderLoopCardSetting(), group: renderGroupSetting(), features: renderFeaturesSetting(), events: renderEventsSetting(), "remote-panel": renderRemoteSetting(), report: renderReportSetting(), gsm: renderGsmSetting(), customize: renderCustomizeSetting(), location: renderLocationSetting(), monitoring: renderMonitoringSetting() }[state.selectedSettingId] || renderDateTimeSetting();
+  const body = ensureSettingActions({ setting: renderSystemSetting(), "date-time": renderDateTimeSetting(), language: renderLanguageSetting(), "panel-caption": renderPanelCaptionSetting(), "password-change": renderPasswordChangeSetting(), "saved-settings": renderSavedSettingsSetting(), "user-management": renderUserManagementSetting(), relay: renderRelaySetting(), "loop-active": renderLoopSetting(), network: renderNetworkSetting(), "night-mode": renderNightSetting(), "loop-card": renderLoopCardSetting(), group: renderGroupSetting(), features: renderFeaturesSetting(), events: renderEventsSetting(), "remote-panel": renderRemoteSetting(), report: renderReportSetting(), gsm: renderGsmSetting(), customize: renderCustomizeSetting(), location: renderLocationSetting(), monitoring: renderMonitoringSetting() }[state.selectedSettingId] || renderDateTimeSetting());
   return `${renderDetailHeader(panel, title, titleEn)}<section class="detail-body">${body}</section>`;
 }
 
@@ -574,12 +748,69 @@ function renderPanelCaptionSetting() {
   const english = state.language === "en";
   const panel = findPanel();
   const displayCaption = `FIRE PANEL ${panel.code.split("-").pop()}`;
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Panel Caption" : "عنوان پنل"}</h3><p>${english ? "Set the names used to identify this fire alarm panel." : "نام‌های مورد استفاده برای شناسایی پنل اعلام حریق را تعیین کنید."}</p></div><span class="status-chip green">${english ? "Ready" : "آماده"}</span></div><div class="compact-form panel-caption-form"><div class="field-block full"><label>${english ? "Panel name" : "نام پنل"}</label><div class="input-with-icon"><input type="text" value="${panel.name}" aria-label="${english ? "Panel name" : "نام پنل"}"></div><small class="field-hint">${english ? "This name remains unchanged when the interface language changes." : "این نام با تغییر زبان رابط کاربری بدون تغییر باقی می‌ماند."}</small></div><div class="field-block full"><label>${english ? "Display Caption" : "عنوان نمایشی پنل"}</label><div class="input-with-icon"><input class="english-input" type="text" value="${displayCaption}" maxlength="24" pattern="[A-Za-z0-9 _-]+" inputmode="text" data-english-only aria-label="${english ? "Display Caption" : "عنوان نمایشی پنل"}"></div><small class="field-hint display-caption-hint">${english ? "This value is shown on the panel display and must use English characters only (A-Z, 0-9, spaces, - or _)." : "این مقدار روی دیسپلی پنل نمایش داده می‌شود و حتماً باید فقط از کاراکترهای انگلیسی استفاده شود (حروف A-Z، اعداد، فاصله، - یا _)."}</small></div></div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Panel Caption" : "عنوان پنل"}</h3><p>${english ? "Set the names used to identify this fire alarm panel." : "نام‌های مورد استفاده برای شناسایی پنل اعلام حریق را تعیین کنید."}</p></div><span class="status-chip green">${english ? "Ready" : "آماده"}</span></div><div class="compact-form panel-caption-form"><div class="field-block full"><label>${english ? "Panel name" : "نام پنل"}</label><div class="input-with-icon"><input type="text" value="${panel.name}" data-persist-setting aria-label="${english ? "Panel name" : "نام پنل"}"></div><small class="field-hint">${english ? "This name remains unchanged when the interface language changes." : "این نام با تغییر زبان رابط کاربری بدون تغییر باقی می‌ماند."}</small></div><div class="field-block full"><label>${english ? "Display Caption" : "عنوان نمایشی پنل"}</label><div class="input-with-icon"><input class="english-input" type="text" value="${displayCaption}" maxlength="24" pattern="[A-Za-z0-9 _-]+" inputmode="text" data-persist-setting data-english-only aria-label="${english ? "Display Caption" : "عنوان نمایشی پنل"}"></div><small class="field-hint display-caption-hint">${english ? "This value is shown on the panel display and must use English characters only (A-Z, 0-9, spaces, - or _)." : "این مقدار روی دیسپلی پنل نمایش داده می‌شود و حتماً باید فقط از کاراکترهای انگلیسی استفاده شود (حروف A-Z، اعداد، فاصله، - یا _)."}</small></div></div>${renderSettingActions()}</article>`;
+}
+
+function renderLegacyPasswordChangeSetting() {
+  const english = state.language === "en";
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Password Change" : "تغییر پسورد"}</h3><p>${english ? "Update the installer account password to keep access secure." : "برای حفظ امنیت دسترسی، رمز حساب نصاب را به‌روزرسانی کنید."}</p></div><span class="status-chip amber">${english ? "Local demo" : "نمونه محلی"}</span></div><div class="compact-form password-form"><div class="field-block"><label>${english ? "Current password" : "رمز فعلی"}</label><input class="password-input" type="password" placeholder="••••••••"></div><div class="field-block"><label>${english ? "New password" : "رمز جدید"}</label><input class="password-input" type="password" placeholder="••••••••"></div><div class="field-block full"><label>${english ? "Confirm new password" : "تکرار رمز جدید"}</label><input class="password-input" type="password" placeholder="••••••••"></div></div>${renderSettingActions()}</article>`;
 }
 
 function renderPasswordChangeSetting() {
   const english = state.language === "en";
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Password Change" : "تغییر پسورد"}</h3><p>${english ? "Update the installer account password to keep access secure." : "برای حفظ امنیت دسترسی، رمز حساب نصاب را به‌روزرسانی کنید."}</p></div><span class="status-chip amber">${english ? "Local demo" : "نمونه محلی"}</span></div><div class="compact-form password-form"><div class="field-block"><label>${english ? "Current password" : "رمز فعلی"}</label><input class="password-input" type="password" placeholder="••••••••"></div><div class="field-block"><label>${english ? "New password" : "رمز جدید"}</label><input class="password-input" type="password" placeholder="••••••••"></div><div class="field-block full"><label>${english ? "Confirm new password" : "تکرار رمز جدید"}</label><input class="password-input" type="password" placeholder="••••••••"></div></div>${renderSettingActions()}</article>`;
+  const users = state.panelUserAccounts || defaultUserAccounts;
+  const userLabel = (user, index) => user.role === "admin"
+    ? (english ? "Administrator" : "کاربر ادمین")
+    : `${english ? "User" : "کاربر"} ${index}`;
+  return `<article class="sub-card password-users-card"><div class="sub-card-head"><div><h3>${english ? "User passwords" : "مدیریت کاربران و پسوردها"}</h3><p>${english ? "Set a username and password for the administrator and five panel users." : "برای ادمین و پنج کاربر پنل، نام کاربری و پسورد تعیین کنید."}</p></div><span class="status-chip amber">${english ? `${users.length} users` : `${faDigits(users.length)} کاربر`}</span></div><div class="password-users-grid">${users.map((user, index) => `<section class="password-user-card${user.role === "admin" ? " admin" : ""}"><div class="password-user-head"><span class="password-user-icon">${icons.user}</span><div><b>${userLabel(user, index)}</b><small>${user.role === "admin" ? (english ? "Full access" : "دسترسی کامل") : (english ? "Panel user" : "کاربر پنل")}</small></div></div><div class="password-user-fields"><div class="field-block"><label>${english ? "Username" : "نام کاربری"}</label><input class="password-input" type="text" value="${escapeHtml(user.name)}" autocomplete="off" data-user-field="name" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} username` : `نام کاربری ${userLabel(user, index)}`}" /></div><div class="field-block"><label>${english ? "Password" : "پسورد"}</label><input class="password-input" type="password" value="${escapeHtml(user.password)}" placeholder="••••••••" autocomplete="new-password" data-user-field="password" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} password` : `پسورد ${userLabel(user, index)}`}" /></div></div></section>`).join("")}</div>${renderSettingActions()}</article>`;
+}
+
+function ensureUserAccess(user) {
+  user.access ||= { all: user.role === "admin", projects: {} };
+  user.access.projects ||= {};
+  return user.access;
+}
+
+function getManagedUser() {
+  const users = state.userAccounts || [];
+  return users.find((user) => user.id === state.selectedManagedUserId) || users[0] || null;
+}
+
+function userAccessDetails(user) {
+  if (!user) return { projectCount: 0, panelCount: 0, labels: [] };
+  const access = ensureUserAccess(user);
+  if (user.role === "admin" || access.all) {
+    return {
+      projectCount: projects.length,
+      panelCount: projects.reduce((sum, project) => sum + project.panels.length, 0),
+      labels: projects.map((project) => `${project.name} · همه پنل‌ها`),
+    };
+  }
+  const labels = [];
+  let panelCount = 0;
+  projects.forEach((project) => {
+    const panelIds = access.projects[project.id] || [];
+    if (!panelIds.length) return;
+    const panelNames = project.panels.filter((panel) => panelIds.includes(panel.id)).map((panel) => panel.name);
+    if (!panelNames.length) return;
+    panelCount += panelNames.length;
+    labels.push(`${project.name} · ${panelNames.join("، ")}`);
+  });
+  return { projectCount: labels.length, panelCount, labels };
+}
+
+function renderUserManagementSetting() {
+  const english = state.language === "en";
+  const users = state.userAccounts || [];
+  const selected = getManagedUser();
+  const selectedAccess = selected ? ensureUserAccess(selected) : { all: false, projects: {} };
+  const details = userAccessDetails(selected);
+  const userRoleLabel = (user) => user?.role === "admin" ? (english ? "Administrator" : "ادمین") : (english ? "Panel user" : "کاربر پنل");
+  const projectAccess = (project) => selected?.role === "admin" || selectedAccess.all || (selectedAccess.projects[project.id] || []).length > 0;
+  const panelAccess = (project, panel) => selected?.role === "admin" || selectedAccess.all || (selectedAccess.projects[project.id] || []).includes(panel.id);
+  const projectPermissionMarkup = selected ? projects.map((project) => `<section class="user-permission-project"><label class="user-permission-project-head"><input type="checkbox" data-user-project="${project.id}" ${projectAccess(project) ? "checked" : ""}${selected.role === "admin" ? " disabled" : ""}><span><b>${escapeHtml(project.name)}</b><small>${faDigits(project.panels.length)} ${english ? "panels" : "پنل"}</small></span><i>${icons.check}</i></label><div class="user-permission-panels">${project.panels.map((panel) => `<label class="user-permission-panel"><input type="checkbox" data-user-panel="${panel.id}" data-user-project-id="${project.id}" ${panelAccess(project, panel) ? "checked" : ""}${selected.role === "admin" ? " disabled" : ""}><span>${icons.panel}<b>${escapeHtml(panel.name)}</b><small dir="ltr">${escapeHtml(panel.code)}</small></span><i>${icons.check}</i></label>`).join("")}</div></section>`).join("") : `<div class="user-empty-state">${icons.user}<b>${english ? "Create a user to set permissions" : "برای تعیین دسترسی، ابتدا یک کاربر بسازید"}</b></div>`;
+  const accessSummary = details.labels.length ? details.labels.map((label) => `<li>${escapeHtml(label)}</li>`).join("") : `<li>${english ? "No project or panel access assigned" : "هنوز دسترسی به پروژه یا پنلی تعیین نشده است"}</li>`;
+  return `<div class="user-management-root"><article class="sub-card user-create-card"><div class="sub-card-head"><div><h3>${english ? "Define a new user" : "تعریف کاربر جدید"}</h3><p>${english ? "Define the user first, then choose exactly which projects and panels it can access. Login credentials will be added later." : "ابتدا کاربر را تعریف کنید و سپس دقیقاً پروژه‌ها و پنل‌های قابل دسترسی را تعیین کنید. اطلاعات ورود در مرحله بعد اضافه می‌شود."}</p></div><span class="status-chip green">${english ? `${users.length} users` : `${faDigits(users.length)} کاربر`}</span></div><div class="user-create-form"><div class="field-block"><label>${english ? "User name" : "نام کاربر"}</label><input type="text" data-new-user-name autocomplete="off" placeholder="${english ? "For example: operator1" : "مثلاً: اپراتور ۱"}"></div><button type="button" class="btn-primary" data-user-create>${icons.user}${english ? "Define user" : "تعریف کاربر"}</button></div></article><div class="user-management-grid"><article class="sub-card user-list-card"><div class="sub-card-head"><div><h3>${english ? "Defined users" : "کاربران تعریف‌شده"}</h3><p>${english ? "Select a user to review or edit permissions." : "برای مشاهده یا ویرایش دسترسی‌ها، یک کاربر را انتخاب کنید."}</p></div></div><div class="managed-user-list">${users.map((user) => { const userDetails = userAccessDetails(user); return `<button type="button" class="managed-user-row${user.id === selected?.id ? " selected" : ""}" data-managed-user-select="${user.id}"><span class="managed-user-avatar">${user.role === "admin" ? icons.settings : icons.user}</span><span class="managed-user-copy"><b>${escapeHtml(user.name || "-")}</b><small>${userRoleLabel(user)}</small></span><span class="managed-user-access"><b>${user.role === "admin" ? (english ? "Full access" : "دسترسی کامل") : `${faDigits(userDetails.panelCount)} ${english ? "panels" : "پنل"}`}</b><small>${user.role === "admin" ? `${faDigits(projects.length)} ${english ? "projects" : "پروژه"}` : `${faDigits(userDetails.projectCount)} ${english ? "projects" : "پروژه"}`}</small></span>${user.id === selected?.id ? `<i>${icons.chevronLeft}</i>` : ""}</button>`; }).join("")}</div></article><article class="sub-card user-permission-card"><div class="sub-card-head"><div><h3>${selected ? escapeHtml(selected.name) : (english ? "User details" : "جزئیات کاربر")}</h3><p>${selected ? (english ? "User definition and access scope" : "تعریف کاربر و محدوده دسترسی") : (english ? "Select a user" : "یک کاربر را انتخاب کنید")}</p></div>${selected ? `<span class="status-chip ${selected.role === "admin" ? "amber" : "green"}">${userRoleLabel(selected)}</span>` : ""}</div>${selected ? `<div class="user-editor-fields"><div class="field-block full"><label>${english ? "User name" : "نام کاربر"}</label><input type="text" value="${escapeHtml(selected.name)}" data-managed-user-field="name" autocomplete="off"></div></div><div class="permission-summary"><div class="permission-summary-icon">${icons.check}</div><div><b>${english ? "Current access" : "دسترسی فعلی"}</b><small>${selected.role === "admin" || selectedAccess.all ? (english ? "All projects and panels" : "همه پروژه‌ها و پنل‌ها") : `${faDigits(details.projectCount)} ${english ? "projects" : "پروژه"} · ${faDigits(details.panelCount)} ${english ? "panels" : "پنل"}`}</small></div></div><div class="user-permission-heading"><div><h4>${english ? "Project and panel access" : "دسترسی پروژه و پنل"}</h4><small>${selected.role === "admin" ? (english ? "Administrator access cannot be restricted." : "دسترسی ادمین کامل است و محدود نمی‌شود.") : (english ? "Choose a project or individual panels." : "پروژه یا پنل‌های مشخص را انتخاب کنید.")}</small></div></div><div class="user-permission-list">${projectPermissionMarkup}</div><div class="user-editor-actions"><button type="button" class="btn-primary" data-user-save>${icons.check}${english ? "Save user changes" : "ذخیره تغییرات کاربر"}</button><button type="button" class="btn-danger compact" data-user-delete="${selected.id}"${selected.role === "admin" ? " disabled" : ""}>${english ? "Delete user" : "حذف کاربر"}</button></div><div class="user-access-details"><b>${english ? "Detailed access summary" : "خلاصه کامل دسترسی"}</b><ul>${accessSummary}</ul></div>` : `<div class="user-empty-state">${icons.user}<b>${english ? "Select a user from the list" : "یک کاربر را از فهرست انتخاب کنید"}</b></div>`}</article></div>${renderSettingActions()}</div>`;
 }
 
 function renderDateTimeSetting() {
@@ -588,41 +819,59 @@ function renderDateTimeSetting() {
   const gregorian = toGregorian(state.year, state.month, state.day);
   const date = `${faDigits(state.year)}/${faDigits(pad(state.month))}/${faDigits(pad(state.day))}`;
   const time = `${faDigits(pad(state.hour))}:${faDigits(pad(state.minute))}`;
-  return `<article class="panel-card date-time-card detail-card"><div class="card-heading"><div class="heading-icon teal">${icons.calendar}</div><div><h3>${english ? "Set date and time" : "تنظیم تاریخ و ساعت"}</h3><p>${english ? "Keep the fire alarm panel date and time accurate for event logs." : "تاریخ و ساعت سیستم اعلام حریق را تنظیم کنید تا ثبت رویدادها دقیق باشد."}</p></div><span class="step-badge">${english ? "Active" : "فعال"}</span></div><div class="form-area"><div class="field-block date-field-wrap"><label for="date-input">${english ? "Panel date" : "تاریخ پنل"}</label><div class="input-with-icon"><input id="date-input" type="text" readonly value="${date}" aria-label="${english ? "Panel date" : "تاریخ پنل"}" aria-haspopup="dialog" aria-expanded="${state.calendarOpen}"${panelRequired}>${icons.calendar}</div>${renderCalendar()}</div><div class="field-block time-field-wrap"><label for="time-input">${english ? "Panel time" : "ساعت پنل"}</label><div class="input-with-icon time-input"><input id="time-input" type="text" readonly value="${time}" aria-label="${english ? "Panel time" : "ساعت پنل"}" aria-haspopup="dialog" aria-expanded="${state.timeOpen}"${panelRequired}>${icons.clock}</div>${renderTimePicker()}<small class="field-hint">${english ? "24-hour format" : "فرمت ساعت ۲۴ ساعته"}</small></div></div><div class="selected-summary"><div class="summary-icon">${icons.check}</div><div><span>${english ? "Selected value" : "مقدار انتخاب‌شده"}</span><b id="selection-summary">${date}${english ? ", time " : "، ساعت "}${time}</b><small id="gregorian-summary">${english ? "Gregorian equivalent: " : "معادل میلادی: "}${gregorian}</small></div><span class="local-badge">${english ? "Jalali" : "شمسی"}</span></div><div class="info-banner compact-banner"><div class="banner-icon">${icons.wifi}</div><div><b>${english ? "Panel is not connected for this project" : "اتصال پنل برای این پروژه فعال نیست"}</b><p>${english ? "Values stay in this form until the panel connection is established." : "مقادیر فعلاً در فرم نگه‌داری می‌شوند و بعد از اتصال قابل ارسال خواهند بود."}</p></div></div></article>`;
+  return `<article class="panel-card date-time-card detail-card"><div class="card-heading"><div class="heading-icon teal">${icons.calendar}</div><div><h3>${english ? "Set date and time" : "تنظیم تاریخ و ساعت"}</h3><p>${english ? "Keep the fire alarm panel date and time accurate for event logs." : "تاریخ و ساعت سیستم اعلام حریق را تنظیم کنید تا ثبت رویدادها دقیق باشد."}</p></div><span class="step-badge">${english ? "Active" : "فعال"}</span></div><div class="form-area"><div class="field-block date-field-wrap"><label for="date-input">${english ? "Panel date" : "تاریخ پنل"}</label><div class="input-with-icon"><input id="date-input" type="text" readonly value="${date}" aria-label="${english ? "Panel date" : "تاریخ پنل"}" aria-haspopup="dialog" aria-expanded="${state.calendarOpen}"${panelRequired}>${icons.calendar}</div>${renderCalendar()}</div><div class="field-block time-field-wrap"><label for="time-input">${english ? "Panel time" : "ساعت پنل"}</label><div class="input-with-icon time-input"><input id="time-input" type="text" readonly value="${time}" aria-label="${english ? "Panel time" : "ساعت پنل"}" aria-haspopup="dialog" aria-expanded="${state.timeOpen}"${panelRequired}>${icons.clock}</div>${renderTimePicker()}<small class="field-hint">${english ? "24-hour format" : "فرمت ساعت ۲۴ ساعته"}</small></div></div><div class="selected-summary"><div class="summary-icon">${icons.check}</div><div><span>${english ? "Selected value" : "مقدار انتخاب‌شده"}</span><b id="selection-summary">${date}${english ? ", time " : "، ساعت "}${time}</b><small id="gregorian-summary">${english ? "Gregorian equivalent: " : "معادل میلادی: "}${gregorian}</small></div><span class="local-badge">${english ? "Jalali" : "شمسی"}</span></div><div class="info-banner compact-banner"><div class="banner-icon">${icons.wifi}</div><div><b>${english ? "Panel is not connected for this project" : "اتصال پنل برای این پروژه فعال نیست"}</b><p>${english ? "Values stay in this form until the panel connection is established." : "مقادیر فعلاً در فرم نگه‌داری می‌شوند و بعد از اتصال قابل ارسال خواهند بود."}</p></div></div>${renderSettingActions()}</article>`;
 }
 
 function renderLanguageSetting() {
   const english = state.language === "en";
-  return `<article class="sub-card language-card"><div class="sub-card-head"><div><h3>${english ? "Interface language" : "زبان رابط کاربری"}</h3><p>${english ? "Choose the language for all menus and controls." : "زبان نمایش منوها، دکمه‌ها و کنترل‌های نرم‌افزار را انتخاب کنید."}</p></div><span class="status-chip green">${english ? "Ready" : "آماده"}</span></div><div class="language-form"><label for="language-select">${english ? "Application language" : "زبان نرم‌افزار"}</label><div class="language-select-wrap">${icons.settings}<select id="language-select" data-language-select aria-label="${english ? "Application language" : "زبان نرم‌افزار"}"><option value="fa" ${!english ? "selected" : ""}>فارسی</option><option value="en" ${english ? "selected" : ""}>English</option></select>${icons.chevronDown}</div><p class="language-note">${english ? "Project and panel names stay unchanged." : "نام پروژه‌ها و پنل‌ها بدون تغییر باقی می‌ماند."}</p></div></article>`;
+  return `<article class="sub-card language-card"><div class="sub-card-head"><div><h3>${english ? "Interface language" : "زبان رابط کاربری"}</h3><p>${english ? "Choose the language for all menus and controls." : "زبان نمایش منوها، دکمه‌ها و کنترل‌های نرم‌افزار را انتخاب کنید."}</p></div><span class="status-chip green">${english ? "Ready" : "آماده"}</span></div><div class="language-form"><label for="language-select">${english ? "Application language" : "زبان نرم‌افزار"}</label><div class="language-select-wrap">${icons.settings}<select id="language-select" data-language-select aria-label="${english ? "Application language" : "زبان نرم‌افزار"}"><option value="fa" ${!english ? "selected" : ""}>فارسی</option><option value="en" ${english ? "selected" : ""}>English</option></select>${icons.chevronDown}</div><p class="language-note">${english ? "Project and panel names stay unchanged." : "نام پروژه‌ها و پنل‌ها بدون تغییر باقی می‌ماند."}</p></div>${renderSettingActions()}</article>`;
 }
 
 function renderToggleRow(label, description, checked = true) {
-  return `<label class="toggle-row"><span><b>${label}</b><small>${description}</small></span><input type="checkbox" ${checked ? "checked" : ""}><i></i></label>`;
+  return `<label class="toggle-row"><span><b>${label}</b><small>${description}</small></span><input type="checkbox" data-persist-setting ${checked ? "checked" : ""}><i></i></label>`;
 }
 
 function renderSettingActions() {
-  const required = panelRequiredAttr(!state.connectedPanelId);
-  return `<div class="inline-actions"><button type="button" class="btn-secondary" data-read-setting${required}>${icons.refresh}خواندن از پنل</button><button type="button" class="btn-primary" data-save-setting${required}>${icons.check}ذخیره تنظیمات</button></div>`;
+  return `<div class="inline-actions"><button type="button" class="btn-primary" data-save-setting>${icons.check}ذخیره تنظیمات</button></div>`;
+}
+
+function ensureSettingActions(markup) {
+  if (markup.includes("data-save-setting")) return markup;
+  return markup.replace("</article>", `${renderSettingActions()}</article>`);
+}
+
+function renderSavedSettingsSetting() {
+  const english = state.language === "en";
+  const panel = findPanel();
+  const files = (state.savedSettingFiles || []).filter((file) => file.panelId === panel?.id);
+  const formatFileDate = (value) => {
+    try { return new Intl.DateTimeFormat(english ? "en-US" : "fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
+    catch { return value || "—"; }
+  };
+  const selectedId = state.selectedSavedSettingFileId;
+  const connected = isCurrentPanelConnected();
+  const cards = files.length ? files.map((file) => `<article class="saved-settings-file${file.id === selectedId ? " selected" : ""}"><div class="saved-settings-file-icon">${file.source === "panel-read" ? icons.refresh : icons.report}</div><div class="saved-settings-file-body"><div class="saved-settings-file-title"><b>${escapeHtml(file.name)}</b><span class="status-chip ${file.source === "panel-read" ? "amber" : "green"}">${file.source === "panel-read" ? (english ? "Read from panel" : "خوانده‌شده از پنل") : (english ? "Draft" : "پیش‌نویس")}</span></div><small>${english ? "Last updated" : "آخرین بروزرسانی"}: ${formatFileDate(file.updatedAt)}</small></div><button type="button" class="btn-secondary compact" data-settings-file-select="${file.id}">${file.id === selectedId ? (english ? "Selected" : "انتخاب شده") : (english ? "Load" : "بارگذاری")}</button></article>`).join("") : `<div class="saved-settings-empty"><span>${icons.report}</span><b>${english ? "No saved settings for this panel" : "هنوز فایلی برای این پنل ذخیره نشده است"}</b><small>${english ? "Create a draft or read the current values from the panel." : "یک پیش‌نویس بسازید یا مقادیر فعلی پنل را بخوانید."}</small></div>`;
+  return `<div class="saved-settings-root"><article class="sub-card saved-settings-card"><div class="sub-card-head"><div><h3>${english ? "Saved settings" : "تنظیمات ذخیره شده"}</h3><p>${english ? "Manage independent draft files for this panel. Saving a draft does not upload it to the panel." : "فایل‌های پیش‌نویس مستقل این پنل را مدیریت کنید. ذخیره پیش‌نویس به‌معنی آپلود روی پنل نیست."}</p></div><span class="status-chip green">${english ? `${files.length} files` : `${faDigits(files.length)} فایل`}</span></div><div class="saved-settings-connection-bar"><div class="saved-settings-connection-status"><span class="connection-dot${connected ? " connected" : ""}"></span><div><b>${english ? "Panel connection" : "اتصال به پنل"}</b><small>${connected ? (english ? `${panel.code} is connected` : `${panel.code} متصل است`) : (english ? `${panel.code} is disconnected` : `${panel.code} متصل نیست`)}</small></div></div><button type="button" class="panel-connect-button saved-settings-connect-button${connected ? " connected" : ""}" data-settings-connect-panel="${panel.id}" aria-pressed="${connected}">${connected ? icons.check + (english ? "Disconnect" : "قطع اتصال") : icons.wifi + (english ? "Connect" : "اتصال")}</button></div><div class="saved-settings-toolbar"><input type="text" data-settings-file-name placeholder="${english ? "New file name" : "نام فایل جدید"}" aria-label="${english ? "New file name" : "نام فایل جدید"}"><button type="button" class="btn-primary compact" data-settings-file-create>${icons.report}${english ? "Create draft" : "ایجاد پیش‌نویس"}</button><button type="button" class="btn-secondary compact" data-read-panel>${icons.refresh}${english ? "Read from panel" : "خواندن از پنل"}</button></div><div class="saved-settings-file-list">${cards}</div><div class="saved-settings-footer"><button type="button" class="btn-secondary" data-upload-panel>${icons.wifi}${english ? "Upload selected file to panel" : "آپلود فایل انتخاب‌شده روی پنل"}</button><small>${english ? "Select a file first. Uploading is a separate operation from saving." : "ابتدا یک فایل را انتخاب کنید. آپلود فرآیندی جدا از ذخیره‌سازی پیش‌نویس است."}</small></div>${renderSettingActions()}</article><article class="sub-card helper-card saved-settings-helper"><div class="helper-icon">${icons.check}</div><h3>${english ? "Safe configuration workflow" : "روند امن تنظیمات"}</h3><p>${english ? "Panel readings are kept as read-only reference files. Any edits are saved into a separate draft file." : "تنظیمات خوانده‌شده از پنل به‌عنوان فایل مرجع نگه‌داری می‌شوند و تغییرات شما در یک پیش‌نویس جدا ذخیره می‌شود."}</p></article></div>`;
 }
 
 function renderRelaySetting() {
-  return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>خروجی رله‌ها</h3><p>عملکرد هر رله را برای رخدادهای پنل تعیین کنید.</p></div><span class="status-chip green">۳ رله فعال</span></div><div class="relay-list">${[["Relay 1", "حریق / Fire", "fire"], ["Relay 2", "خطا / Fault", "fault"], ["Relay 3", "پیش‌هشدار / Pre-Alarm", "pre"]].map(([name, value, key]) => `<div class="relay-row"><span class="relay-number">${icons.panel}</span><div><b>${name}</b><small>خروجی قابل تنظیم پنل</small></div><select data-setting-input="${key}"><option selected>${value}</option><option>نظارت / Supervisory</option><option>غیرفعال</option></select></div>`).join("")}</div>${renderSettingActions()}</article><article class="sub-card helper-card"><div class="helper-icon">${icons.bell}</div><h3>نکته کاربردی</h3><p>تنظیم خروجی رله‌ها رفتار تجهیزات جانبی مانند آژیر، فن و سیستم‌های اعلان را مشخص می‌کند.</p><div class="mini-status"><span class="status-pulse"></span>آخرین خواندن: امروز، ۱۰:۲۴</div></article></div>`;
+  return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>خروجی رله‌ها</h3><p>عملکرد هر رله را برای رخدادهای پنل تعیین کنید.</p></div><span class="status-chip green">۳ رله فعال</span></div><div class="relay-list">${[["Relay 1", "حریق / Fire", "fire"], ["Relay 2", "خطا / Fault", "fault"], ["Relay 3", "پیش‌هشدار / Pre-Alarm", "pre"]].map(([name, value, key]) => `<div class="relay-row"><span class="relay-number">${icons.panel}</span><div><b>${name}</b><small>خروجی قابل تنظیم پنل</small></div><select data-setting-input="${key}" data-persist-setting><option selected>${value}</option><option>نظارت / Supervisory</option><option>غیرفعال</option></select></div>`).join("")}</div>${renderSettingActions()}</article><article class="sub-card helper-card"><div class="helper-icon">${icons.bell}</div><h3>نکته کاربردی</h3><p>تنظیم خروجی رله‌ها رفتار تجهیزات جانبی مانند آژیر، فن و سیستم‌های اعلان را مشخص می‌کند.</p><div class="mini-status"><span class="status-pulse"></span>آخرین خواندن: امروز، ۱۰:۲۴</div></article></div>`;
 }
 
 function renderLoopSetting() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>فعال‌سازی کارت‌های لوپ</h3><p>کارت‌هایی را که در این پنل نصب شده‌اند فعال کنید.</p></div><span class="status-chip green">۴ کارت</span></div><div class="loop-grid">${[1, 2, 3, 4].map((loop) => `<label class="loop-card-option"><input type="checkbox" checked><span>${icons.panel}<b>Loop Card ${faDigits(loop)}</b><small>فعال و آماده‌ی استفاده</small><i>${icons.check}</i></span></label>`).join("")}</div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>فعال‌سازی کارت‌های لوپ</h3><p>کارت‌هایی را که در این پنل نصب شده‌اند فعال کنید.</p></div><span class="status-chip green">۴ کارت</span></div><div class="loop-grid">${[1, 2, 3, 4].map((loop) => `<label class="loop-card-option"><input type="checkbox" data-persist-setting checked><span>${icons.panel}<b>Loop Card ${faDigits(loop)}</b><small>فعال و آماده‌ی استفاده</small><i>${icons.check}</i></span></label>`).join("")}</div>${renderSettingActions()}</article>`;
 }
 
 function renderNetworkSetting() {
   const english = state.language === "en";
-  const option = (label, description, enabled = true) => `<label class="network-option"><div><b>${label}</b><small>${description}</small></div><input type="checkbox" ${enabled ? "checked" : ""} aria-label="${label}"><i class="network-toggle" aria-hidden="true"></i></label>`;
+  const option = (label, description, enabled = true) => `<label class="network-option"><div><b>${label}</b><small>${description}</small></div><input type="checkbox" data-persist-setting ${enabled ? "checked" : ""} aria-label="${label}"><i class="network-toggle" aria-hidden="true"></i></label>`;
   const section = (title, description, rows) => `<section class="network-section"><div class="network-section-head"><h4>${title}</h4><small>${description}</small></div><div class="network-section-list">${rows}</div></section>`;
   return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Panel network settings" : "تنظیمات شبکه پنل‌ها"}</h3><p>${english ? "Configure network availability, master commands, and shared outputs." : "وضعیت شبکه، فرمان‌های سراسری و خروجی‌های مشترک را تنظیم کنید."}</p></div><span class="status-chip amber">${english ? "Draft" : "پیش‌نویس"}</span></div><div class="network-settings">${section(english ? "Network Status" : "وضعیت شبکه", english ? "Enable or disable panel networking." : "فعال یا غیرفعال کردن ارتباط شبکه پنل.", option(english ? "Network Status" : "وضعیت شبکه", english ? "Panel network communication" : "ارتباط شبکه پنل", true))}${section("Master Silence", english ? "Global silence command permissions." : "مجوزهای فرمان سکوت سراسری.", option(english ? "Send" : "ارسال", english ? "Send the silence command to network panels." : "ارسال فرمان سکوت به پنل‌های شبکه.", true) + option(english ? "Accept" : "دریافت", english ? "Accept silence commands from the network." : "پذیرش فرمان‌های سکوت از شبکه.", true))}${section("Master Evacuate", english ? "Global evacuation command permissions." : "مجوزهای فرمان تخلیه سراسری.", option(english ? "Send" : "ارسال", english ? "Send the evacuation command to network panels." : "ارسال فرمان تخلیه به پنل‌های شبکه.", false) + option(english ? "Accept" : "دریافت", english ? "Accept evacuation commands from the network." : "پذیرش فرمان‌های تخلیه از شبکه.", false))}${section(english ? "Network Output Configuration" : "پیکربندی خروجی شبکه", english ? "Choose which output states are shared across the network." : "انتخاب وضعیت خروجی‌هایی که در شبکه به اشتراک گذاشته می‌شوند.", option(english ? "Fire Output" : "خروجی حریق", english ? "Share fire output status on the network." : "اشتراک وضعیت خروجی حریق در شبکه.", true) + option(english ? "Fault Output" : "خروجی خطا", english ? "Share fault output status on the network." : "اشتراک وضعیت خروجی خطا در شبکه.", true) + option(english ? "Supervisory Output" : "خروجی نظارتی", english ? "Share supervisory output status on the network." : "اشتراک وضعیت خروجی نظارتی در شبکه.", true) + option("NAC’s", english ? "Share notification appliance circuit output." : "اشتراک خروجی مدار آژیر در شبکه.", false))}</div>${renderSettingActions()}</article>`;
 }
 
 function renderNightSetting() {
   const english = state.language === "en";
-  const disabled = !state.connectedPanelId;
+  const disabled = false;
   const disabledAttr = panelRequiredAttr(disabled);
   const statusLabel = (enabled) => enabled ? (english ? "Enabled" : "فعال") : (english ? "Disabled" : "غیرفعال");
   const timeValue = (hour, minute) => `${faDigits(pad(hour))}:${faDigits(pad(minute))}`;
@@ -653,7 +902,7 @@ function renderLoopCardSettingLegacy() {
 
 function renderLoopCardSetting() {
   const english = state.language === "en";
-  const disabled = !state.connectedPanelId;
+  const disabled = false;
   const disabledAttr = panelRequiredAttr(disabled);
   const card = state.loopCards.find((item) => item.id === state.selectedLoopCardId) || state.loopCards[0];
   const devices = card?.devices || [];
@@ -667,17 +916,24 @@ function renderLoopCardSetting() {
   const renderDeviceRow = (device) => `<div class="loop-device-row${state.selectedLoopDeviceId === device.id ? " selected" : ""}" data-loop-address="${device.number}"><label class="loop-row-selector"><input type="radio" name="loop-device-select" data-loop-device-select="${device.id}" ${state.selectedLoopDeviceId === device.id ? "checked" : ""}${disabledAttr}><span></span></label><div class="loop-number">${faDigits(device.number)}</div>${field(device, "enabled", selectOptions([["enabled", english ? "Enable" : "فعال"], ["disabled", english ? "Disable" : "غیرفعال"]], device.enabled ? "enabled" : "disabled"))}${field(device, "style", selectOptions([["class-b", "Class B"], ["class-a", "Class A"]], device.style))}${field(device, "type", loopDeviceTypes.map((type) => [type.key, english ? type.en : type.fa]).map(([value, label]) => `<option value="${value}" ${device.type === value ? "selected" : ""}>${label}</option>`).join(""))}${field(device, "category", selectOptions(loopCategories.map((item) => [item, categoryLabel(item)]), device.category))}${field(device, "inputType", selectOptions([["alarm", "Alarm"], ["supervisory", "Supervisory"]], device.inputType || "alarm"))}${field(device, "deactivation", selectOptions([["silence", english ? "Silence" : "سایلنس"], ["reset", english ? "Reset" : "ریست"], ["auto-reset", english ? "Auto Reset" : "اتو ریست"]], device.deactivation || "silence"))}${field(device, "sensitivity", selectOptions([["low", english ? "Low" : "کم"], ["medium", english ? "Medium" : "متوسط"], ["high", english ? "High" : "زیاد"]], device.sensitivity))}${field(device, "nightMode", selectOptions([["day", english ? "Day" : "روز"], ["night", english ? "Night" : "شب"]], device.nightMode))}${field(device, "location", device.location || "")}</div>`;
   const renderEmptyRow = (address) => `<div class="loop-device-row loop-empty-row" data-loop-address="${address}"><span></span><button type="button" class="loop-empty-address" data-loop-empty-address="${address}"${disabledAttr}>${faDigits(address)}</button><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>${english ? "Empty slot" : "خانه خالی"}</span></div>`;
   const renderFilteredRow = (device) => `<div class="loop-device-row loop-filtered-row" data-loop-address="${device.number}"><span></span><span class="loop-number">${faDigits(device.number)}</span><span class="loop-filtered-label">${english ? "Filtered" : "فیلتر شده"}</span><span>—</span><span>${typeLabel(device.type)}</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span></div>`;
-  const rows = Array.from({ length: 254 }, (_, index) => {
-    const address = index + 1;
-    const device = deviceByAddress.get(address);
-    if (!device) return renderEmptyRow(address);
-    if (state.loopDeviceFilter !== "all" && device.type !== state.loopDeviceFilter) return renderFilteredRow(device);
-    return renderDeviceRow(device);
-  }).join("");
+  const filteredDevices = state.loopDeviceFilter === "all"
+    ? devices
+    : devices
+      .filter((device) => device.type === state.loopDeviceFilter)
+      .sort((first, second) => Number(first.number) - Number(second.number));
+  const rows = state.loopDeviceFilter === "all"
+    ? Array.from({ length: 254 }, (_, index) => {
+      const address = index + 1;
+      const device = deviceByAddress.get(address);
+      return device ? renderDeviceRow(device) : renderEmptyRow(address);
+    }).join("")
+    : filteredDevices.length
+      ? filteredDevices.map(renderDeviceRow).join("")
+      : `<div class="loop-empty-state">${english ? "No devices match the selected filter." : "دیوایسی مطابق فیلتر انتخاب‌شده پیدا نشد."}</div>`;
   const countCards = loopDeviceTypes.map((type) => `<div class="loop-type-count"><span>${typeLabel(type.key)}</span><b>${faDigits(devices.filter((device) => device.type === type.key).length)}</b></div>`).join("");
   const filterOptions = [["all", english ? "All devices" : "همه دیوایس‌ها"], ...loopDeviceTypes.map((type) => [type.key, typeLabel(type.key)])];
   const cardChoices = state.loopCards.map((loopCard) => `<button type="button" class="loop-card-choice${loopCard.id === card?.id ? " selected" : ""}" data-loop-card-select="${loopCard.id}"${disabledAttr}><span><b>${loopCard.label}</b><small>${faDigits(loopCard.devices.length)} ${english ? "devices" : "دیوایس"}</small></span></button>`).join("");
-  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage its 1–254 device addresses." : "یک کارت لوپ را انتخاب کنید و آدرس‌های ۱ تا ۲۵۴ دیوایس آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-type-counts">${countCards}<div class="loop-type-count total"><span>${english ? "Total" : "مجموع"}</span><b>${faDigits(devices.length)}</b></div></div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-add-panel"><div class="loop-add-field"><label for="loop-address-input">${english ? "Device Address" : "آدرس دیوایس"}</label><input id="loop-address-input" type="number" min="1" max="254" step="1" inputmode="numeric" placeholder="${english ? "1–254 or automatic" : "۱ تا ۲۵۴ یا انتخاب خودکار"}" data-loop-address-input${disabledAttr}></div><div class="loop-add-field"><label>${english ? "Device Type" : "نوع دیوایس"}</label><select class="loop-add-select" data-loop-new-type${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${typeLabel(type.key)}</option>`).join("")}</select></div><button type="button" class="btn-primary compact loop-add-button" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><small class="loop-add-hint">${english ? "Click an empty address below to fill it automatically." : "برای تکمیل خودکار، روی یکی از آدرس‌های خالی زیر کلیک کنید."}</small><small class="loop-add-error">${state.loopAddError || ""}</small></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Selected address" : "آدرس انتخاب‌شده"}: <b dir="ltr" data-loop-selected-address>${selectedAddress}</b></span><span>${english ? "Empty addresses" : "آدرس‌های خالی"}: <b>${faDigits(254 - devices.length)}</b></span><span>${english ? "Address range" : "محدوده آدرس"}: <b dir="ltr">1–254</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Address" : "آدرس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>${english ? "Input Type" : "نوع ورودی"}</span><span>${english ? "Deactivation" : "عملکرد غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "موقعیت"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button><button type="button" class="btn-primary compact" data-loop-save${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button></div></article>`;
+  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage its 1–254 device addresses." : "یک کارت لوپ را انتخاب کنید و آدرس‌های ۱ تا ۲۵۴ دیوایس آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-type-counts">${countCards}<div class="loop-type-count total"><span>${english ? "Total" : "مجموع"}</span><b>${faDigits(devices.length)}</b></div></div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-add-panel"><div class="loop-add-field"><label for="loop-address-input">${english ? "Device Address" : "آدرس دیوایس"}</label><input id="loop-address-input" type="number" min="1" max="254" step="1" inputmode="numeric" placeholder="${english ? "1–254 or automatic" : "۱ تا ۲۵۴ یا انتخاب خودکار"}" data-loop-address-input${disabledAttr}></div><div class="loop-add-field"><label>${english ? "Device Type" : "نوع دیوایس"}</label><select class="loop-add-select" data-loop-new-type${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${typeLabel(type.key)}</option>`).join("")}</select></div><button type="button" class="btn-primary compact loop-add-button" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><small class="loop-add-hint">${english ? "Click an empty address below to fill it automatically." : "برای تکمیل خودکار، روی یکی از آدرس‌های خالی زیر کلیک کنید."}</small><small class="loop-add-error">${state.loopAddError || ""}</small></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Selected address" : "آدرس انتخاب‌شده"}: <b dir="ltr" data-loop-selected-address>${selectedAddress}</b></span><span>${english ? "Empty addresses" : "آدرس‌های خالی"}: <b>${faDigits(254 - devices.length)}</b></span><span>${english ? "Address range" : "محدوده آدرس"}: <b dir="ltr">1–254</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Address" : "آدرس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>${english ? "Input Type" : "نوع ورودی"}</span><span>${english ? "Deactivation" : "عملکرد غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "موقعیت"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button></div>${renderSettingActions()}</article>`;
 }
 
 function selectedLoopCard() {
@@ -782,7 +1038,13 @@ function bindLoopCardEventsLegacy() {
     control.addEventListener("change", () => { if (connected) updateDeviceField(control); });
     if (control.tagName === "INPUT") control.addEventListener("input", () => { if (connected) updateDeviceField(control); });
   });
-  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => { if (!connected) return; state.loopDeviceFilter = event.target.value; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => {
+    if (!connected) return;
+    state.loopDeviceFilter = event.target.value;
+    const selected = card?.devices.find((device) => device.id === state.selectedLoopDeviceId);
+    if (state.loopDeviceFilter !== "all" && selected?.type !== state.loopDeviceFilter) state.selectedLoopDeviceId = null;
+    redrawLoopCardSetting();
+  });
   root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => { if (!connected) return; state.loopDeviceFilter = "all"; redrawLoopCardSetting(); });
   root.querySelector("[data-loop-read]")?.addEventListener("click", () => {
     if (!connected) return;
@@ -887,7 +1149,7 @@ function showLoopAddressConflictModal(card, existingDevice, address, typeKey) {
 function bindLoopCardEvents(options = {}) {
   const root = document.querySelector(".loop-card-setting");
   if (!root) return;
-  const connected = Boolean(state.connectedPanelId);
+  const connected = true;
   const card = selectedLoopCard();
   root.querySelectorAll("[data-loop-card-select]").forEach((button) => button.addEventListener("click", () => {
     if (!connected) return;
@@ -945,10 +1207,16 @@ function bindLoopCardEvents(options = {}) {
     setLoopAddError("");
     input.focus({ preventScroll: true });
   }));
-  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => { if (!connected) return; state.loopDeviceFilter = event.target.value; redrawLoopCardSetting(); });
+  root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => {
+    if (!connected) return;
+    state.loopDeviceFilter = event.target.value;
+    const selected = card?.devices.find((device) => device.id === state.selectedLoopDeviceId);
+    if (state.loopDeviceFilter !== "all" && selected?.type !== state.loopDeviceFilter) state.selectedLoopDeviceId = null;
+    redrawLoopCardSetting();
+  });
   root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => { if (!connected) return; state.loopDeviceFilter = "all"; redrawLoopCardSetting(); });
   root.querySelector("[data-loop-read]")?.addEventListener("click", () => {
-    if (!connected || !card) return;
+    if (!requireCurrentPanelConnection() || !card) return;
     readLoopCardDevices(card);
     state.loopDeviceFilter = "all";
     state.selectedLoopDeviceId = card.devices[0]?.id || null;
@@ -1050,7 +1318,7 @@ function renderGroupListItem(ref, english, selected = false) {
 
 function renderGroupSettingZone() {
   const english = state.language === "en";
-  const disabled = !state.connectedPanelId;
+  const disabled = false;
   const disabledAttr = panelRequiredAttr(disabled);
   const title = english ? "Group" : "گروه‌بندی";
   const description = english ? "Create and manage zone, input, and output device groups." : "گروه‌بندی زون و دیوایس‌های ورودی و خروجی را مدیریت کنید.";
@@ -1066,7 +1334,7 @@ function renderGroupSettingZone() {
     const inputDevices = (selectedLoop?.devices || []).filter((device) => !groupedKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
     const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
     const groupedList = group.length ? group.map((ref) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Click a device to add it to this group." : "برای افزودن دیوایس به گروه روی آن کلیک کنید."}</div>`;
-    return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("zone")}<div class="group-form-grid">${selectField(english ? "Group Number" : "شماره گروه", "data-zone-group-number", groupNumberOptions(state.zoneGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-zone-loop", groupLoopOptions(state.zoneLoopCardId))}<label class="group-switch-field"><span><b>${english ? "Pre Alarm" : "پیش هشدار"}</b><small>${english ? "Enable pre-alarm for this zone group." : "پیش‌هشدار این گروه زون را فعال کنید."}</small></span><span class="group-switch-wrap"><em>${state.zonePreAlarm[state.zoneGroupNumber] ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-zone-prealarm ${state.zonePreAlarm[state.zoneGroupNumber] ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-device-columns zone-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click a device to add it to the selected group." : "برای افزودن به گروه، دیوایس را انتخاب کنید."}</small></div><b>${faDigits(inputDevices.length)}</b></div><div class="group-device-list">${inputList}</div></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Zone Grouped Devices List" : "لیست دیوایس‌های گروه‌بندی‌شده"}</h4><small>${english ? `Group ${state.zoneGroupNumber}` : `گروه ${faDigits(state.zoneGroupNumber)}`}</small></div><b>${faDigits(group.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div>${actions("zone")}</article>`;
+    return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("zone")}<div class="group-form-grid">${selectField(english ? "Group Number" : "شماره گروه", "data-zone-group-number", groupNumberOptions(state.zoneGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-zone-loop", groupLoopOptions(state.zoneLoopCardId))}<label class="group-switch-field"><span><b>${english ? "Pre Alarm" : "پیش هشدار"}</b><small>${english ? "Enable pre-alarm for this zone group." : "پیش‌هشدار این گروه زون را فعال کنید."}</small></span><span class="group-switch-wrap"><em>${state.zonePreAlarm[state.zoneGroupNumber] ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-zone-prealarm ${state.zonePreAlarm[state.zoneGroupNumber] ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-device-columns zone-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click a device to add it to the selected group." : "برای افزودن به گروه، دیوایس را انتخاب کنید."}</small></div><b>${faDigits(inputDevices.length)}</b></div><div class="group-device-list">${inputList}</div></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Zone Grouped Devices List" : "لیست دیوایس‌های گروه‌بندی‌شده"}</h4><small>${english ? `Group ${state.zoneGroupNumber}` : `گروه ${faDigits(state.zoneGroupNumber)}`}</small></div><b>${faDigits(group.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div>${actions("zone")}${renderSettingActions()}</article>`;
   }
 
   const group = getIoGroup();
@@ -1114,7 +1382,7 @@ function renderInputOutputGroupSettingLegacy() {
 
 function renderInputOutputGroupSetting() {
   const english = state.language === "en";
-  const disabled = !state.connectedPanelId;
+  const disabled = false;
   const disabledAttr = panelRequiredAttr(disabled);
   const relation = getIoGroup();
   const inputRefs = state.ioInputGroups[state.ioInputGroupNumber] || [];
@@ -1152,7 +1420,7 @@ function renderInputOutputGroupSetting() {
   const activeCountOptions = Array.from({ length: 16 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${activeCount === value ? "selected" : ""}>${faDigits(value)}</option>`).join("");
   const bottomActions = `<div class="group-actions"><span></span><button type="button" class="btn-secondary compact" data-group-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button><button type="button" class="btn-secondary compact" data-group-save="io"${disabledAttr}>${icons.check}${english ? "Save" : "ذخیره"}</button><button type="button" class="btn-primary compact" data-group-update="io"${disabledAttr}>${icons.refresh}${english ? "Update All" : "به‌روزرسانی همه"}</button></div>`;
   const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab" data-group-tab="zone" role="tab">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab active" data-group-tab="io" role="tab" aria-selected="true">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
-  return `<article class="sub-card group-setting io-group-setting"><div class="sub-card-head"><div><h3>${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</h3><p>${english ? "Create input and output groups independently, then connect them with an activation rule." : "گروه‌های ورودی و خروجی را جداگانه بسازید و سپس با یک شرط مشخص به هم مرتبط کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}<div class="group-toolbar"><button type="button" class="btn-secondary compact" data-group-read-all="io"${disabledAttr}>${icons.refresh}${english ? "Read All Groups" : "خواندن همه گروه‌ها"}</button><span class="group-connection-note ${disabled ? "offline" : "online"}">${disabled ? (english ? "Connect a panel to manage groups" : "برای مدیریت گروه‌ها پنل را متصل کنید") : (english ? "Panel connection active" : "اتصال پنل فعال است")}</span></div><section class="group-relation-card${state.groupRelationCollapsed ? " collapsed" : ""}"><button type="button" class="group-relation-toggle" data-group-relation-toggle aria-expanded="${!state.groupRelationCollapsed}"><span><h4>${english ? "Group Relation" : "ارتباط گروه‌ها"}</h4><small>${english ? "Select the input and output group numbers for this rule." : "شماره گروه ورودی و خروجی این ارتباط را انتخاب کنید."}</small></span><span class="group-relation-badge">${icons.chevronLeft}</span></button><div class="group-relation-body"><div class="group-form-grid io-group-selects">${selectField(english ? "Input Group Number (1–96)" : "شماره گروه ورودی (۱ تا ۹۶)", "data-io-input-group", groupNumberOptions(state.ioInputGroupNumber, 96))}${selectField(english ? "Output Group Number (1–96)" : "شماره گروه خروجی (۱ تا ۹۶)", "data-io-output-group", groupNumberOptions(state.ioOutputGroupNumber, 96))}</div><div class="group-relation-summary">${icons.check}<span>${relationSummary}</span></div></div></section><section class="group-loop-selector"><div><h4>${english ? "Loop Card Devices" : "دیوایس‌های کارت لوپ"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? "Choose a loop card to show its input and output devices below." : "یک کارت لوپ را انتخاب کنید تا دیوایس‌های ورودی و خروجی آن در ادامه نمایش داده شوند."}</small></div>${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-io-loop", groupLoopOptions(state.ioLoopCardId))}</section><div class="group-device-columns io-source-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Group Devices" : "دیوایس‌های گروه ورودی"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? `Available for Input Group ${state.ioInputGroupNumber}` : `قابل افزودن به گروه ورودی ${faDigits(state.ioInputGroupNumber)}`}</small></div><b>${faDigits(availableInputs.length)}</b></div><div class="group-device-list">${list(availableInputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="input"${disabledAttr}>&lt;&lt; ${english ? "Add all to input group" : "افزودن همه به گروه ورودی"}</button></section><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Output Group Devices" : "دیوایس‌های گروه خروجی"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? `Available for Output Group ${state.ioOutputGroupNumber}` : `قابل افزودن به گروه خروجی ${faDigits(state.ioOutputGroupNumber)}`}</small></div><b>${faDigits(availableOutputs.length)}</b></div><div class="group-device-list">${list(availableOutputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="output"${disabledAttr}>&lt;&lt; ${english ? "Add all to output group" : "افزودن همه به گروه خروجی"}</button></section></div><div class="group-config-layout"><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Input / Output Grouping" : "گروهبندی ورودی و خروجی"}</h4><small>${english ? `${inputRefs.length} inputs · ${outputRefs.length} outputs` : `${faDigits(inputRefs.length)} ورودی · ${faDigits(outputRefs.length)} خروجی`}</small></div><b>${faDigits(grouped.length)}</b></div><div class="group-device-list">${groupedList}</div><div class="group-member-actions"><button type="button" class="btn-danger compact" data-group-delete="io"${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="io"${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button></div></section><aside class="group-parameters-rail"><label class="group-switch-field"><span><b>${english ? "Status" : "وضعیت"}</b><small>${english ? "Enable or disable this relation." : "این ارتباط را فعال یا غیرفعال کنید."}</small></span><span class="group-switch-wrap"><em>${relation.status ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-io-status ${relation.status ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label><label class="group-field"><span>${english ? "Active Count" : "تعداد فعال"}</span><select data-io-active-count${disabledAttr}>${activeCountOptions}</select></label><label class="group-field"><span>${english ? "Output Active for" : "فعال‌سازی خروجی برای"}</span><select data-io-output-active${disabledAttr}>${outputOptions.map(([value, label]) => `<option value="${value}" ${relation.outputActiveFor === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="group-field"><span>${english ? "Delay (0–999 Sec)" : "تاخیر (۰ تا ۹۹۹ ثانیه)"}</span><input type="number" min="0" max="999" value="${delay}" data-io-delay${disabledAttr}></label></aside></div>${bottomActions}</article>`;
+  return `<article class="sub-card group-setting io-group-setting"><div class="sub-card-head"><div><h3>${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</h3><p>${english ? "Create input and output groups independently, then connect them with an activation rule." : "گروه‌های ورودی و خروجی را جداگانه بسازید و سپس با یک شرط مشخص به هم مرتبط کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}<div class="group-toolbar"><button type="button" class="btn-secondary compact" data-group-read-all="io"${disabledAttr}>${icons.refresh}${english ? "Read All Groups" : "خواندن همه گروه‌ها"}</button><span class="group-connection-note ${disabled ? "offline" : "online"}">${disabled ? (english ? "Connect a panel to manage groups" : "برای مدیریت گروه‌ها پنل را متصل کنید") : (english ? "Panel connection active" : "اتصال پنل فعال است")}</span></div><section class="group-relation-card${state.groupRelationCollapsed ? " collapsed" : ""}"><button type="button" class="group-relation-toggle" data-group-relation-toggle aria-expanded="${!state.groupRelationCollapsed}"><span><h4>${english ? "Group Relation" : "ارتباط گروه‌ها"}</h4><small>${english ? "Select the input and output group numbers for this rule." : "شماره گروه ورودی و خروجی این ارتباط را انتخاب کنید."}</small></span><span class="group-relation-badge">${icons.chevronLeft}</span></button><div class="group-relation-body"><div class="group-form-grid io-group-selects">${selectField(english ? "Input Group Number (1–96)" : "شماره گروه ورودی (۱ تا ۹۶)", "data-io-input-group", groupNumberOptions(state.ioInputGroupNumber, 96))}${selectField(english ? "Output Group Number (1–96)" : "شماره گروه خروجی (۱ تا ۹۶)", "data-io-output-group", groupNumberOptions(state.ioOutputGroupNumber, 96))}</div><div class="group-relation-summary">${icons.check}<span>${relationSummary}</span></div></div></section><section class="group-loop-selector"><div><h4>${english ? "Loop Card Devices" : "دیوایس‌های کارت لوپ"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? "Choose a loop card to show its input and output devices below." : "یک کارت لوپ را انتخاب کنید تا دیوایس‌های ورودی و خروجی آن در ادامه نمایش داده شوند."}</small></div>${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-io-loop", groupLoopOptions(state.ioLoopCardId))}</section><div class="group-device-columns io-source-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Group Devices" : "دیوایس‌های گروه ورودی"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? `Available for Input Group ${state.ioInputGroupNumber}` : `قابل افزودن به گروه ورودی ${faDigits(state.ioInputGroupNumber)}`}</small></div><b>${faDigits(availableInputs.length)}</b></div><div class="group-device-list">${list(availableInputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="input"${disabledAttr}>&lt;&lt; ${english ? "Add all to input group" : "افزودن همه به گروه ورودی"}</button></section><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Output Group Devices" : "دیوایس‌های گروه خروجی"} <em class="group-loop-label">${selectedLoopLabel}</em></h4><small>${english ? `Available for Output Group ${state.ioOutputGroupNumber}` : `قابل افزودن به گروه خروجی ${faDigits(state.ioOutputGroupNumber)}`}</small></div><b>${faDigits(availableOutputs.length)}</b></div><div class="group-device-list">${list(availableOutputs)}</div><button type="button" class="group-transfer-button" data-io-add-all="output"${disabledAttr}>&lt;&lt; ${english ? "Add all to output group" : "افزودن همه به گروه خروجی"}</button></section></div><div class="group-config-layout"><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Input / Output Grouping" : "گروهبندی ورودی و خروجی"}</h4><small>${english ? `${inputRefs.length} inputs · ${outputRefs.length} outputs` : `${faDigits(inputRefs.length)} ورودی · ${faDigits(outputRefs.length)} خروجی`}</small></div><b>${faDigits(grouped.length)}</b></div><div class="group-device-list">${groupedList}</div><div class="group-member-actions"><button type="button" class="btn-danger compact" data-group-delete="io"${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-group-delete-all="io"${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button></div></section><aside class="group-parameters-rail"><label class="group-switch-field"><span><b>${english ? "Status" : "وضعیت"}</b><small>${english ? "Enable or disable this relation." : "این ارتباط را فعال یا غیرفعال کنید."}</small></span><span class="group-switch-wrap"><em>${relation.status ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-io-status ${relation.status ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label><label class="group-field"><span>${english ? "Active Count" : "تعداد فعال"}</span><select data-io-active-count${disabledAttr}>${activeCountOptions}</select></label><label class="group-field"><span>${english ? "Output Active for" : "فعال‌سازی خروجی برای"}</span><select data-io-output-active${disabledAttr}>${outputOptions.map(([value, label]) => `<option value="${value}" ${relation.outputActiveFor === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="group-field"><span>${english ? "Delay (0–999 Sec)" : "تاخیر (۰ تا ۹۹۹ ثانیه)"}</span><input type="number" min="0" max="999" value="${delay}" data-io-delay${disabledAttr}></label></aside></div>${bottomActions}${renderSettingActions()}</article>`;
 }
 
 function renderGroupSetting() {
@@ -1178,30 +1446,24 @@ function showPanelConnectionWarning() {
   const modal = document.createElement("div");
   modal.className = "group-connection-modal";
   modal.setAttribute("role", "presentation");
-  modal.innerHTML = `<div class="group-connection-dialog" role="dialog" aria-modal="true" aria-labelledby="group-connection-title"><div class="group-connection-icon">!</div><div><h3 id="group-connection-title">${english ? "Panel connection required" : "اتصال پنل لازم است"}</h3><p>${english ? "Connect the selected panel before changing its settings." : "برای تغییر تنظیمات پنل، ابتدا پنل انتخاب‌شده را متصل کنید."}</p></div><div class="group-connection-actions"><button type="button" class="btn-primary" data-group-warning-close>${english ? "Got it" : "متوجه شدم"}</button></div></div>`;
+  modal.innerHTML = `<div class="group-connection-dialog" role="dialog" aria-modal="true" aria-labelledby="group-connection-title"><div class="group-connection-icon">!</div><div><h3 id="group-connection-title">${english ? "Panel connection required" : "اتصال پنل لازم است"}</h3><p>${english ? "Connect the selected panel before reading from it or uploading settings to it." : "برای خواندن از پنل یا آپلود تنظیمات روی آن، ابتدا پنل انتخاب‌شده را متصل کنید."}</p></div><div class="group-connection-actions"><button type="button" class="btn-primary" data-group-warning-close>${english ? "Got it" : "متوجه شدم"}</button></div></div>`;
   document.body.appendChild(modal);
   modal.querySelector("[data-group-warning-close]")?.addEventListener("click", closeGroupConnectionWarning);
   modal.addEventListener("click", (event) => { if (event.target === modal) closeGroupConnectionWarning(); });
 }
 
-function showGroupConnectionWarning() {
-  showPanelConnectionWarning();
+function isCurrentPanelConnected() {
+  return state.connectedPanelId === findPanel()?.id;
 }
 
-function bindPanelConnectionGuards() {
-  if (document.documentElement.dataset.panelConnectionGuardsBound) return;
-  const shouldInterceptKey = (event) => ["Enter", " ", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key);
-  const intercept = (event) => {
-    if (state.connectedPanelId) return;
-    const target = event.target instanceof Element ? event.target.closest("[data-panel-required]") : null;
-    if (!target) return;
-    if (event.type === "keydown" && !shouldInterceptKey(event)) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showPanelConnectionWarning();
-  };
-  ["pointerdown", "click", "change", "input", "keydown"].forEach((eventName) => document.addEventListener(eventName, intercept, true));
-  document.documentElement.dataset.panelConnectionGuardsBound = "true";
+function requireCurrentPanelConnection() {
+  if (isCurrentPanelConnected()) return true;
+  showPanelConnectionWarning();
+  return false;
+}
+
+function showGroupConnectionWarning() {
+  showPanelConnectionWarning();
 }
 
 function scrollSelectedGroupDevice() {
@@ -1220,9 +1482,7 @@ function scrollSelectedGroupDevice() {
 }
 
 function groupConnectionGuard() {
-  if (state.connectedPanelId) return true;
-  showGroupConnectionWarning();
-  return false;
+  return true;
 }
 
 function arrangeIoGroupLayout() {
@@ -1379,7 +1639,7 @@ function bindGroupSettingEvents() {
     redrawGroupSetting();
   }));
   root.querySelectorAll("[data-group-read-all]").forEach((button) => button.addEventListener("click", () => {
-    if (!groupConnectionGuard()) return;
+    if (!requireCurrentPanelConnection()) return;
     if (button.dataset.groupReadAll === "zone") {
       state.zoneGroups = {};
       state.loopCards.slice(0, 2).forEach((card, index) => { state.zoneGroups[index + 1] = card.devices.slice(0, 2).map((device) => ({ loopId: card.id, deviceId: device.id })); });
@@ -1441,8 +1701,8 @@ function bindGroupSettingEvents() {
     }
     showToast(state.language === "en" ? "Group changes were saved locally." : "تغییرات گروه‌بندی در نرم‌افزار ذخیره شد.");
   }));
-  root.querySelectorAll("[data-group-update]").forEach((button) => button.addEventListener("click", () => { if (groupConnectionGuard()) showToast(state.language === "en" ? "All group changes were applied to the panel." : "تمام تغییرات گروه‌بندی روی پنل اعمال شد."); }));
-  root.querySelector("[data-group-print]")?.addEventListener("click", () => { if (groupConnectionGuard()) window.print(); });
+  root.querySelectorAll("[data-group-update]").forEach((button) => button.addEventListener("click", () => showToast(state.language === "en" ? "Group changes are ready in the draft. Upload them from Saved Settings." : "تغییرات گروه‌بندی در پیش‌نویس آماده است؛ برای اعمال روی پنل از تنظیمات ذخیره‌شده آپلود کنید.", "info")));
+  root.querySelector("[data-group-print]")?.addEventListener("click", () => window.print());
   scrollSelectedGroupDevice();
 }
 
@@ -1452,24 +1712,24 @@ function renderFeaturesSetting() {
 
 function renderEventsSetting() {
   const events = [["حریق", "دتکتور دود · طبقه ۲", "امروز، ۰۹:۴۲", "fire"], ["خطای ارتباط", "Loop Card 2", "امروز، ۰۸:۱۵", "fault"], ["بازگشت به حالت عادی", "زون ۰۳", "دیروز، ۱۸:۲۱", "normal"]];
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${findPanel().name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact">${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact">${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.bell : type === "fault" ? icons.wifi : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div></article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${findPanel().name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact">${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact">${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.bell : type === "fault" ? icons.wifi : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div>${renderSettingActions()}</article>`;
 }
 
 function renderRemoteSetting() {
-  return `<div class="remote-layout"><article class="sub-card remote-status"><div class="remote-graphic">${icons.wifi}<span></span></div><span class="status-chip amber">اتصال برقرار نیست</span><h3>پنل از راه دور</h3><p>برای مشاهده و همگام‌سازی پنل‌های دور، ابتدا ارتباط اینترنتی یا شبکه را تنظیم کنید.</p><button type="button" class="btn-secondary">تنظیم ارتباط</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>پنل‌های همکار</h3><p>پنل‌هایی که برای همگام‌سازی انتخاب شده‌اند</p></div></div><div class="remote-list"><div><span>${icons.panel}</span><b>FIRE-CTRL-05</b><em>در انتظار اتصال</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-06</b><em>آفلاین</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-07</b><em>غیرفعال</em></div></div></article></div>`;
+  return `<div class="remote-layout"><article class="sub-card remote-status"><div class="remote-graphic">${icons.wifi}<span></span></div><span class="status-chip amber">اتصال برقرار نیست</span><h3>پنل از راه دور</h3><p>برای مشاهده و همگام‌سازی پنل‌های دور، ابتدا ارتباط اینترنتی یا شبکه را تنظیم کنید.</p><button type="button" class="btn-secondary">تنظیم ارتباط</button>${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>پنل‌های همکار</h3><p>پنل‌هایی که برای همگام‌سازی انتخاب شده‌اند</p></div></div><div class="remote-list"><div><span>${icons.panel}</span><b>FIRE-CTRL-05</b><em>در انتظار اتصال</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-06</b><em>آفلاین</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-07</b><em>غیرفعال</em></div></div></article></div>`;
 }
 
 function renderReportSetting() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گزارش تنظیمات پنل</h3><p>گزارش خلاصه از وضعیت پیکربندی و دیوایس‌ها</p></div><button type="button" class="btn-primary compact">${icons.report}تولید گزارش</button></div><div class="report-preview"><div><span>${icons.panel}</span><b>وضعیت پنل</b><strong>آماده</strong></div><div><span>${icons.grid}</span><b>تعداد دیوایس‌ها</b><strong>۲۴</strong></div><div><span>${icons.bell}</span><b>رویدادهای باز</b><strong>۲</strong></div><div><span>${icons.check}</span><b>گروه‌های تنظیم‌شده</b><strong>۳</strong></div></div><div class="report-file">${icons.report}<span><b>گزارش پیکربندی FIRE-CTRL-04</b><small>آخرین تولید: امروز، ۱۰:۳۰ · PDF</small></span><button type="button" class="btn-secondary compact">دانلود</button></div></article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گزارش تنظیمات پنل</h3><p>گزارش خلاصه از وضعیت پیکربندی و دیوایس‌ها</p></div><button type="button" class="btn-primary compact">${icons.report}تولید گزارش</button></div><div class="report-preview"><div><span>${icons.panel}</span><b>وضعیت پنل</b><strong>آماده</strong></div><div><span>${icons.grid}</span><b>تعداد دیوایس‌ها</b><strong>۲۴</strong></div><div><span>${icons.bell}</span><b>رویدادهای باز</b><strong>۲</strong></div><div><span>${icons.check}</span><b>گروه‌های تنظیم‌شده</b><strong>۳</strong></div></div><div class="report-file">${icons.report}<span><b>گزارش پیکربندی FIRE-CTRL-04</b><small>آخرین تولید: امروز، ۱۰:۳۰ · PDF</small></span><button type="button" class="btn-secondary compact">دانلود</button></div>${renderSettingActions()}</article>`;
 }
 
 function renderGsmSetting() {
   return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>تلفن‌کننده GSM</h3><p>وضعیت ارسال پیامک و تماس صوتی</p></div><span class="status-chip amber">آماده‌سازی</span></div><div class="gsm-number"><span>${icons.bell}</span><div><b>۰۹۱۲ ۳۴۵ ۶۷۸۹</b><small>شماره اصلی دریافت هشدار</small></div><button type="button" class="btn-secondary compact">ویرایش</button></div>${renderToggleRow("تماس صوتی هنگام حریق", "ارسال تماس به شماره‌های ثبت‌شده", true)}${renderToggleRow("ارسال پیامک خطا", "گزارش خطاهای پنل از طریق پیامک", true)}${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای قابل ارسال</h3><p>انتخاب رخدادهای مهم</p></div></div>${renderToggleRow("حریق", "Fire Alarm", true)}${renderToggleRow("خطا", "Fault", true)}${renderToggleRow("نظارت", "Supervisory", false)}${renderToggleRow("بازگشت به حالت عادی", "Restore", false)}</article></div>`;
 }
 
-function renderCustomizeSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>سفارشی‌سازی اعلان‌ها</h3><p>متن و قالب پیام‌های ارسالی تلفن‌کننده را تعیین کنید.</p></div></div><div class="form-area compact-form"><div class="field-block"><label>عنوان پروژه در پیامک</label><div class="fake-input"><span>مجتمع اداری آفتاب</span></div></div><div class="field-block"><label>زبان پیام</label><div class="fake-input"><span>فارسی</span>${icons.chevronDown}</div></div><div class="field-block full"><label>قالب پیام حریق</label><textarea class="sample-textarea">هشدار حریق در {PROJECT} - {PANEL} - {TIME}</textarea></div></div>${renderSettingActions()}</article>`; }
+function renderCustomizeSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>سفارشی‌سازی اعلان‌ها</h3><p>متن و قالب پیام‌های ارسالی تلفن‌کننده را تعیین کنید.</p></div></div><div class="form-area compact-form"><div class="field-block"><label>عنوان پروژه در پیامک</label><div class="fake-input"><span>مجتمع اداری آفتاب</span></div></div><div class="field-block"><label>زبان پیام</label><div class="fake-input"><span>فارسی</span>${icons.chevronDown}</div></div><div class="field-block full"><label>قالب پیام حریق</label><textarea class="sample-textarea" data-persist-setting>هشدار حریق در {PROJECT} - {PANEL} - {TIME}</textarea></div></div>${renderSettingActions()}</article>`; }
 function renderLocationSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>موقعیت پنل</h3><p>محل نصب پنل را برای نمایش در نقشه ثبت کنید.</p></div><span class="status-chip green">ثبت شده</span></div><div class="location-map"><div class="map-grid"></div><span class="map-pin">${icons.panel}</span><div class="map-label"><b>مجتمع اداری آفتاب</b><small>تهران، خیابان ولیعصر</small></div></div><div class="form-area compact-form"><div class="field-block"><label>طبقه / بخش</label><div class="fake-input"><span>اتاق کنترل، طبقه همکف</span></div></div><div class="field-block"><label>مختصات پروژه</label><div class="fake-input" dir="ltr"><span>35.7219, 51.3347</span></div></div></div>${renderSettingActions()}</article>`; }
-function renderMonitoringSetting() { return `<div class="monitoring-grid"><article class="sub-card monitoring-hero"><div class="monitoring-ring"><span>${icons.dashboard}</span></div><span class="status-chip green">مانیتورینگ آماده</span><h3>مرکز مانیتورینگ</h3><p>وضعیت پنل‌ها، اتصال‌ها و رخدادها را از یک نمای واحد دنبال کنید.</p><button type="button" class="btn-primary">ورود به مانیتورینگ</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>وضعیت سرویس‌ها</h3><p>آخرین بررسی خودکار سیستم</p></div></div>${renderToggleRow("مانیتورینگ زنده", "دریافت وضعیت پنل‌ها در لحظه", true)}${renderToggleRow("اعلان رخداد جدید", "نمایش هشدار در داشبورد نصاب", true)}${renderToggleRow("ثبت لاگ ارتباطات", "ثبت زمان و کاربر هر اتصال", true)}</article></div>`; }
+function renderMonitoringSetting() { return `<div class="monitoring-grid"><article class="sub-card monitoring-hero"><div class="monitoring-ring"><span>${icons.dashboard}</span></div><span class="status-chip green">مانیتورینگ آماده</span><h3>مرکز مانیتورینگ</h3><p>وضعیت پنل‌ها، اتصال‌ها و رخدادها را از یک نمای واحد دنبال کنید.</p><button type="button" class="btn-primary">ورود به مانیتورینگ</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>وضعیت سرویس‌ها</h3><p>آخرین بررسی خودکار سیستم</p></div></div>${renderToggleRow("مانیتورینگ زنده", "دریافت وضعیت پنل‌ها در لحظه", true)}${renderToggleRow("اعلان رخداد جدید", "نمایش هشدار در داشبورد نصاب", true)}${renderToggleRow("ثبت لاگ ارتباطات", "ثبت زمان و کاربر هر اتصال", true)}${renderSettingActions()}</article></div>`; }
 
 function renderWorkspace(project) {
   const panel = findPanel();
@@ -1493,13 +1753,7 @@ function renderApp() {
     item.classList.toggle("active", active);
   });
   content.innerHTML = isWorkspace ? renderWorkspace(project) : renderProjectsPage();
-  if (!state.connectedPanelId) {
-    content.querySelectorAll(".detail-header button, .detail-body input, .detail-body select, .detail-body textarea, .detail-body button").forEach((control) => {
-      control.dataset.panelRequired = "true";
-      control.setAttribute("aria-disabled", "true");
-    });
-  }
-  updateConnectionControl();
+  restoreGenericSettingControls();
   bindViewEvents();
   document.documentElement.lang = state.language === "en" ? "en" : "fa";
   document.documentElement.dir = state.language === "en" ? "ltr" : "rtl";
@@ -1507,6 +1761,7 @@ function renderApp() {
   updateSidebarState();
   translateUI(document.querySelector("#app"));
   updateThemeButton();
+  queueApplicationStateSave();
 }
 
 function daysInMonth(year, month) { return month <= 6 ? 31 : month <= 11 ? 30 : isLeapJalaaliYear(year) ? 30 : 29; }
@@ -1846,7 +2101,7 @@ function resetNightSettings() {
 function bindNightSettingEvents() {
   const root = document.querySelector(".night-settings-root");
   if (!root) return;
-  const connected = Boolean(state.connectedPanelId);
+  const connected = true;
   root.querySelectorAll("[data-night-toggle]").forEach((input) => input.addEventListener("change", () => {
     if (!connected) return;
     if (input.dataset.nightToggle === "daily") state.dailyDayNightEnabled = input.checked;
@@ -1940,33 +2195,112 @@ function bindNightSettingEvents() {
   });
 }
 
+function closeSettingsModal() {
+  document.querySelector(".settings-modal-backdrop")?.remove();
+}
+
+function showSettingsFileDialog(onSaved) {
+  closeSettingsModal();
+  const english = state.language === "en";
+  const panel = findPanel();
+  const drafts = (state.savedSettingFiles || []).filter((file) => file.panelId === panel?.id && file.source === "draft");
+  const options = [`<option value="__new__">${english ? "Create a new file" : "ایجاد فایل جدید"}</option>`, ...drafts.map((file) => `<option value="${file.id}"${file.id === state.selectedSavedSettingId ? " selected" : ""}>${escapeHtml(file.name)}</option>`)].join("");
+  const backdrop = document.createElement("div");
+  backdrop.className = "settings-modal-backdrop";
+  backdrop.innerHTML = `<div class="settings-modal-card" role="dialog" aria-modal="true"><div class="settings-modal-head"><div class="helper-icon">${icons.report}</div><div><h3>${english ? "Save settings" : "ذخیره تنظیمات"}</h3><p>${english ? "Which file should contain these settings?" : "این تنظیمات داخل کدام فایل ذخیره شود؟"}</p></div></div><div class="settings-modal-form"><label>${english ? "Target file" : "فایل مقصد"}<select data-settings-file-picker>${options}</select></label><label>${english ? "New file name" : "نام فایل جدید"}<input type="text" data-settings-modal-name placeholder="${english ? "For example: Main panel draft" : "مثلاً: پیش‌نویس پنل اصلی"} "></label></div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-settings-modal-cancel>${english ? "Cancel" : "انصراف"}</button><button type="button" class="btn-primary" data-settings-modal-confirm>${icons.check}${english ? "Save" : "ذخیره"}</button></div></div>`;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) closeSettingsModal(); });
+  backdrop.querySelector("[data-settings-modal-cancel]")?.addEventListener("click", closeSettingsModal);
+  backdrop.querySelector("[data-settings-file-picker]")?.focus();
+  backdrop.querySelector("[data-settings-modal-confirm]")?.addEventListener("click", () => {
+    const picker = backdrop.querySelector("[data-settings-file-picker]");
+    const nameInput = backdrop.querySelector("[data-settings-modal-name]");
+    const pickedId = picker?.value;
+    let file = drafts.find((item) => item.id === pickedId);
+    if (pickedId === "__new__") {
+      const name = nameInput?.value.trim();
+      if (!name) { nameInput?.focus(); showToast(english ? "Enter a file name first." : "ابتدا نام فایل را وارد کنید.", "info"); return; }
+      file = createSettingsFile(name, "draft");
+      state.savedSettingFiles = [...(state.savedSettingFiles || []), file];
+    } else if (file) {
+      file.snapshot = captureSettingsSnapshot();
+      file.updatedAt = new Date().toISOString();
+    }
+    if (!file) return;
+    state.selectedSavedSettingFileId = file.id;
+    state.settingsDirty = false;
+    state.settingsBaselineSnapshot = captureSettingsSnapshot();
+    persistSettingsFiles();
+    queueApplicationStateSave();
+    closeSettingsModal();
+    if (onSaved) onSaved(file);
+    else renderApp();
+    showToast(english ? `Settings saved to ${file.name}.` : `تنظیمات در فایل «${file.name}» ذخیره شد.`);
+  });
+}
+
+function showUnsavedSettingsDialog(onSave, onDiscard) {
+  closeSettingsModal();
+  const english = state.language === "en";
+  const backdrop = document.createElement("div");
+  backdrop.className = "settings-modal-backdrop";
+  backdrop.innerHTML = `<div class="settings-modal-card" role="dialog" aria-modal="true"><div class="settings-modal-head"><div class="helper-icon">${icons.settings}</div><div><h3>${english ? "Unsaved changes" : "تغییرات ذخیره‌نشده"}</h3><p>${english ? "You changed these settings. Do you want to save them before continuing?" : "در این بخش تغییراتی ایجاد کرده‌اید. قبل از ادامه، تغییرات ذخیره شوند؟"}</p></div></div><div class="settings-modal-actions settings-modal-three-actions"><button type="button" class="btn-secondary" data-settings-modal-cancel>${english ? "Cancel" : "انصراف"}</button><button type="button" class="btn-ghost" data-settings-modal-discard>${english ? "Continue without saving" : "ادامه بدون ذخیره"}</button><button type="button" class="btn-primary" data-settings-modal-save>${icons.check}${english ? "Save changes" : "ذخیره تغییرات"}</button></div></div>`;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) closeSettingsModal(); });
+  backdrop.querySelector("[data-settings-modal-cancel]")?.addEventListener("click", closeSettingsModal);
+  backdrop.querySelector("[data-settings-modal-discard]")?.addEventListener("click", () => { closeSettingsModal(); state.settingsDirty = false; onDiscard?.(); });
+  backdrop.querySelector("[data-settings-modal-save]")?.addEventListener("click", () => { closeSettingsModal(); showSettingsFileDialog(() => { state.settingsDirty = false; onSave?.(); }); });
+}
+
+function requestSettingsTransition(action) {
+  const hasChanges = state.settingsDirty && (!state.settingsBaselineSnapshot || JSON.stringify(captureSettingsSnapshot()) !== JSON.stringify(state.settingsBaselineSnapshot));
+  if (!hasChanges) { state.settingsDirty = false; action(); return; }
+  showUnsavedSettingsDialog(action, action);
+}
+
 function bindViewEvents() {
   const content = document.querySelector("#content-root");
   if (!content) return;
+  if (!content.dataset.settingsDirtyTrackingBound) {
+    const isUtilityControl = (target) => target.closest("[data-save-setting], [data-settings-file-select], [data-settings-file-create], [data-settings-file-name], [data-read-panel], [data-upload-panel], [data-settings-connect-panel], [data-user-create], [data-managed-user-select], [data-user-save], [data-user-delete], [data-user-project], [data-user-panel], [data-managed-user-field], [data-new-user-name], [data-new-user-password]");
+    content.addEventListener("input", (event) => {
+      if (event.target.closest(".detail-body") && !isUtilityControl(event.target)) { state.settingsDirty = true; syncGenericSettingControls(); queueApplicationStateSave(); }
+    }, true);
+    content.addEventListener("change", (event) => {
+      if (event.target.closest(".detail-body") && !isUtilityControl(event.target)) { state.settingsDirty = true; syncGenericSettingControls(); queueApplicationStateSave(); }
+    }, true);
+    content.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target.closest(".detail-body") && target.closest("button, label, input, select, textarea") && !isUtilityControl(target)) { state.settingsDirty = true; queueApplicationStateSave(); }
+    }, true);
+    content.dataset.settingsDirtyTrackingBound = "true";
+  }
   if (!content.dataset.projectNavigationBound) {
     content.addEventListener("click", (event) => {
       const button = event.target.closest("[data-project-id]");
       if (!button || !content.contains(button)) return;
       const selectedProject = projects.find((project) => project.id === button.dataset.projectId);
       if (!selectedProject) return;
-      state.selectedProjectId = selectedProject.id;
-      state.selectedPanelId = selectedProject.panels[0]?.id || null;
-      if (!selectedProject.panels.some((panel) => panel.id === state.connectedPanelId)) state.connectedPanelId = null;
-      state.selectedSettingId = "date-time";
-      // Start the configuration sidebar minimized on every viewport.
-      state.panelMenuOpen = false;
-      state.settingsTreeCollapsed = true;
-      state.view = "workspace";
-      renderApp();
+      requestSettingsTransition(() => {
+        state.selectedProjectId = selectedProject.id;
+        state.selectedPanelId = selectedProject.panels[0]?.id || null;
+        if (!selectedProject.panels.some((panel) => panel.id === state.connectedPanelId)) state.connectedPanelId = null;
+        state.selectedSettingId = "date-time";
+        // Start the configuration sidebar minimized on every viewport.
+        state.panelMenuOpen = false;
+        state.settingsTreeCollapsed = true;
+        state.view = "workspace";
+        renderApp();
+      });
     });
     content.dataset.projectNavigationBound = "true";
   }
-  content.querySelectorAll("[data-back-projects]").forEach((button) => button.addEventListener("click", () => {
+  content.querySelectorAll("[data-back-projects]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => {
     state.view = "projects";
     state.selectedProjectId = null;
     state.selectedPanelId = null;
     renderApp();
-  }));
+  })));
   content.querySelectorAll("[data-project-menu-toggle]").forEach((button) => button.addEventListener("click", () => {
     state.projectMenuOpen = !state.projectMenuOpen;
     const wrap = button.closest(".project-strip-wrap");
@@ -1997,15 +2331,16 @@ function bindViewEvents() {
     button.setAttribute("aria-label", state.settingsTreeCollapsed ? (state.language === "en" ? "Expand panel configuration" : "باز کردن پیکربندی پنل") : (state.language === "en" ? "Minimize panel configuration" : "مینیمایز کردن پیکربندی پنل"));
     button.innerHTML = state.settingsTreeCollapsed ? icons.chevronLeft : icons.chevronRight;
   }));
-  content.querySelectorAll("[data-panel-id]").forEach((button) => button.addEventListener("click", () => {
+  content.querySelectorAll("[data-panel-id]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => {
     state.selectedPanelId = button.dataset.panelId;
     state.calendarOpen = false;
     state.timeOpen = false;
+    state.selectedSavedSettingFileId = null;
     renderApp();
-  }));
-  content.querySelectorAll("[data-connect-panel]").forEach((button) => button.addEventListener("click", (event) => {
+  })));
+  content.querySelectorAll("[data-settings-connect-panel]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
-    const panelId = button.dataset.connectPanel;
+    const panelId = button.dataset.settingsConnectPanel;
     if (state.connectedPanelId === panelId) {
       state.connectedPanelId = null;
       renderApp();
@@ -2047,14 +2382,14 @@ function bindViewEvents() {
       treeColumn.addEventListener("transitionend", finishResize);
     }
   }));
-  content.querySelectorAll("[data-setting-id]").forEach((button) => button.addEventListener("click", () => {
+  content.querySelectorAll("[data-setting-id]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => {
     state.selectedSettingId = button.dataset.settingId;
     state.calendarOpen = false;
     state.timeOpen = false;
     state.nightTimeOpen = null;
     state.holidayCalendarOpen = false;
     renderApp();
-  }));
+  })));
   content.querySelectorAll("[data-language-select]").forEach((select) => select.addEventListener("change", () => {
     state.language = select.value;
     activeLanguage = state.language;
@@ -2066,16 +2401,138 @@ function bindViewEvents() {
     showToast(state.language === "en" ? "Language changed to English." : "زبان نرم‌افزار به فارسی تغییر کرد.");
   }));
   content.querySelectorAll("[data-panel-refresh]").forEach((button) => button.addEventListener("click", () => showToast("وضعیت پنل‌ها به‌روزرسانی شد.")));
-  content.querySelectorAll("[data-save-setting]").forEach((button) => button.addEventListener("click", () => {
-    if (!state.connectedPanelId) { showToast(state.language === "en" ? "Connect a panel before saving changes." : "برای ذخیره تغییرات ابتدا پنل را متصل کنید.", "info"); return; }
-    showToast(state.language === "en" ? "Sample changes saved to the panel." : "تغییرات نمونه روی پنل ذخیره شد.");
+  content.querySelectorAll("[data-save-setting]").forEach((button) => button.addEventListener("click", () => showSettingsFileDialog()));
+  content.querySelectorAll("[data-settings-file-create]").forEach((button) => button.addEventListener("click", () => {
+    const input = content.querySelector("[data-settings-file-name]");
+    const name = input?.value.trim();
+    if (!name) { input?.focus(); showToast(state.language === "en" ? "Enter a file name first." : "ابتدا نام فایل را وارد کنید.", "info"); return; }
+    const file = createSettingsFile(name, "draft");
+    state.savedSettingFiles = [...(state.savedSettingFiles || []), file];
+    state.selectedSavedSettingFileId = file.id;
+    state.settingsDirty = false;
+    state.settingsBaselineSnapshot = captureSettingsSnapshot();
+    persistSettingsFiles();
+    renderApp();
+    showToast(state.language === "en" ? `Draft ${file.name} created.` : `پیش‌نویس «${file.name}» ایجاد شد.`);
   }));
-  content.querySelectorAll("[data-read-setting]").forEach((button) => button.addEventListener("click", () => {
-    if (!state.connectedPanelId) { showToast(state.language === "en" ? "Connect a panel before reading settings." : "برای خواندن تنظیمات ابتدا پنل را متصل کنید.", "info"); return; }
-    showToast(state.language === "en" ? "Sample panel values were read." : "مقادیر نمونه‌ی پنل خوانده شد.", "info");
+  content.querySelectorAll("[data-settings-file-select]").forEach((button) => button.addEventListener("click", () => {
+    const file = state.savedSettingFiles?.find((item) => item.id === button.dataset.settingsFileSelect);
+    if (!file) return;
+    requestSettingsTransition(() => {
+      applySettingsSnapshot(file.snapshot);
+      state.selectedSavedSettingFileId = file.id;
+      renderApp();
+      showToast(state.language === "en" ? `${file.name} loaded.` : `تنظیمات فایل «${file.name}» اعمال شد.`);
+    });
+  }));
+  content.querySelectorAll("[data-read-panel]").forEach((button) => button.addEventListener("click", () => {
+    if (!requireCurrentPanelConnection()) return;
+    requestSettingsTransition(() => {
+      const file = createSettingsFile(`${state.language === "en" ? "Panel reading" : "خوانده‌شده از پنل"} ${new Date().toLocaleString(state.language === "en" ? "en-US" : "fa-IR")}`, "panel-read");
+      state.savedSettingFiles = [...(state.savedSettingFiles || []), file];
+      state.selectedSavedSettingFileId = file.id;
+      state.settingsDirty = false;
+      state.settingsBaselineSnapshot = captureSettingsSnapshot();
+      persistSettingsFiles();
+      renderApp();
+      showToast(state.language === "en" ? "Panel values were read into a separate file." : "مقادیر پنل در یک فایل جدا ذخیره شد.", "info");
+    });
+  }));
+  content.querySelectorAll("[data-upload-panel]").forEach((button) => button.addEventListener("click", () => {
+    if (!requireCurrentPanelConnection()) return;
+    const file = state.savedSettingFiles?.find((item) => item.id === state.selectedSavedSettingFileId);
+    if (!file) { showToast(state.language === "en" ? "Select a saved settings file first." : "ابتدا یک فایل تنظیمات را انتخاب کنید.", "info"); return; }
+    applySettingsSnapshot(file.snapshot);
+    state.settingsDirty = false;
+    state.settingsBaselineSnapshot = captureSettingsSnapshot();
+    renderApp();
+    showToast(state.language === "en" ? `${file.name} was uploaded to the panel.` : `فایل «${file.name}» روی پنل آپلود شد.`);
   }));
   content.querySelectorAll("[data-english-only]").forEach((input) => input.addEventListener("input", () => {
     input.value = input.value.replace(/[^A-Za-z0-9 _-]/g, "");
+  }));
+  content.querySelectorAll("[data-user-field]").forEach((input) => input.addEventListener("input", () => {
+    const user = state.panelUserAccounts?.find((item) => item.id === input.dataset.userId);
+    if (!user) return;
+    user[input.dataset.userField] = input.value;
+    localStorage.setItem("fire-panel-panel-users", JSON.stringify(state.panelUserAccounts || defaultUserAccounts));
+    queueApplicationStateSave();
+  }));
+  content.querySelectorAll("[data-managed-user-select]").forEach((button) => button.addEventListener("click", () => {
+    state.selectedManagedUserId = button.dataset.managedUserSelect;
+    renderApp();
+  }));
+  content.querySelectorAll("[data-managed-user-field]").forEach((input) => input.addEventListener("input", () => {
+    const user = getManagedUser();
+    if (!user) return;
+    user[input.dataset.managedUserField] = input.value;
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+    queueApplicationStateSave();
+  }));
+  content.querySelectorAll("[data-user-project]").forEach((input) => input.addEventListener("change", () => {
+    const user = getManagedUser();
+    if (!user || user.role === "admin") return;
+    const access = ensureUserAccess(user);
+    const project = projects.find((item) => item.id === input.dataset.userProject);
+    if (!project) return;
+    if (input.checked) access.projects[project.id] = project.panels.map((panel) => panel.id);
+    else delete access.projects[project.id];
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+    queueApplicationStateSave();
+    renderApp();
+  }));
+  content.querySelectorAll("[data-user-panel]").forEach((input) => input.addEventListener("change", () => {
+    const user = getManagedUser();
+    if (!user || user.role === "admin") return;
+    const access = ensureUserAccess(user);
+    const projectId = input.dataset.userProjectId;
+    const panelIds = new Set(access.projects[projectId] || []);
+    if (input.checked) panelIds.add(input.dataset.userPanel);
+    else panelIds.delete(input.dataset.userPanel);
+    const project = projects.find((item) => item.id === projectId);
+    const nextPanelIds = [...panelIds];
+    if (project && nextPanelIds.length) access.projects[projectId] = nextPanelIds;
+    else delete access.projects[projectId];
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+    queueApplicationStateSave();
+    renderApp();
+  }));
+  content.querySelectorAll("[data-user-create]").forEach((button) => button.addEventListener("click", () => {
+    const nameInput = content.querySelector("[data-new-user-name]");
+    const name = nameInput?.value.trim();
+    if (!name) { nameInput?.focus(); showToast(state.language === "en" ? "Enter a user name first." : "ابتدا نام کاربر را وارد کنید.", "info"); return; }
+    if ((state.userAccounts || []).some((user) => user.name.toLowerCase() === name.toLowerCase())) { nameInput?.focus(); showToast(state.language === "en" ? "This user already exists." : "این کاربر قبلاً ثبت شده است.", "info"); return; }
+    const user = { id: `managed-user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role: "user", name, access: { all: false, projects: {} } };
+    state.userAccounts = [...(state.userAccounts || []), user];
+    state.selectedManagedUserId = user.id;
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts));
+    queueApplicationStateSave();
+    renderApp();
+    showToast(state.language === "en" ? `${name} was created. Set its access on the right.` : `کاربر «${name}» ایجاد شد؛ دسترسی آن را از سمت راست تعیین کنید.`);
+  }));
+  content.querySelectorAll("[data-user-save]").forEach((button) => button.addEventListener("click", () => {
+    const user = getManagedUser();
+    if (!user) return;
+    const access = ensureUserAccess(user);
+    if (user.role === "admin") access.all = true;
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+    state.settingsDirty = false;
+    state.settingsBaselineSnapshot = captureSettingsSnapshot();
+    queueApplicationStateSave();
+    renderApp();
+    showToast(state.language === "en" ? "User changes were saved." : "تغییرات کاربر ذخیره شد.");
+  }));
+  content.querySelectorAll("[data-user-delete]").forEach((button) => button.addEventListener("click", () => {
+    const user = state.userAccounts?.find((item) => item.id === button.dataset.userDelete);
+    if (!user || user.role === "admin") return;
+    const message = state.language === "en" ? `Delete ${user.name}?` : `کاربر «${user.name}» حذف شود؟`;
+    if (!window.confirm(message)) return;
+    state.userAccounts = state.userAccounts.filter((item) => item.id !== user.id);
+    state.selectedManagedUserId = state.userAccounts[0]?.id || null;
+    localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts));
+    queueApplicationStateSave();
+    renderApp();
+    showToast(state.language === "en" ? "User deleted." : "کاربر حذف شد.", "info");
   }));
   bindGroupSettingEvents();
   bindLoopCardEvents();
@@ -2085,7 +2542,6 @@ function bindViewEvents() {
 
 function bindEvents() {
   const $ = (selector) => document.querySelector(selector);
-  bindPanelConnectionGuards();
   const closeMenu = () => {
     state.sidebarOpen = false;
     $("#sidebar").classList.remove("open");
@@ -2111,26 +2567,36 @@ function bindEvents() {
     state.sidebarCollapsed = !state.sidebarCollapsed;
     localStorage.setItem("fire-panel-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0");
     updateSidebarState();
+    queueApplicationStateSave();
   });
   updateThemeButton();
   $("#theme-toggle").addEventListener("click", () => {
     const dark = document.documentElement.classList.toggle("dark");
     localStorage.setItem("fire-panel-theme", dark ? "dark" : "light");
     updateThemeButton();
+    queueApplicationStateSave();
   });
   document.querySelectorAll("[data-nav-view]").forEach((button) => button.addEventListener("click", () => {
-    state.view = button.dataset.navView;
-    if (button.dataset.navSetting) state.selectedSettingId = button.dataset.navSetting;
-    if (state.view === "workspace" && !state.selectedProjectId) {
-      state.selectedProjectId = projects[0].id;
-      state.selectedPanelId = projects[0].panels[0].id;
-    }
-    closeMenu();
-    renderApp();
+    requestSettingsTransition(() => {
+      state.view = button.dataset.navView;
+      if (button.dataset.navSetting) state.selectedSettingId = button.dataset.navSetting;
+      if (state.view === "workspace" && !state.selectedProjectId) {
+        state.selectedProjectId = projects[0].id;
+        state.selectedPanelId = projects[0].panels[0].id;
+      }
+      closeMenu();
+      renderApp();
+    });
   }));
   renderApp();
 }
 
-renderShell();
-state.sidebarCollapsed = localStorage.getItem("fire-panel-sidebar-collapsed") === "1";
-bindEvents();
+async function bootstrap() {
+  const hasRemoteState = await loadApplicationState();
+  renderShell();
+  if (!hasRemoteState) state.sidebarCollapsed = localStorage.getItem("fire-panel-sidebar-collapsed") === "1";
+  bindEvents();
+  queueApplicationStateSave();
+}
+
+bootstrap();
