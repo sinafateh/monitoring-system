@@ -4,13 +4,17 @@ let activeLanguage = localStorage.getItem("fire-panel-language") || "fa";
 const faDigits = (value) => String(value).replace(/\d/g, (digit) => activeLanguage === "en" ? digit : "۰۱۲۳۴۵۶۷۸۹"[digit]);
 const enDigits = (value) => String(value).replace(/[۰-۹]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit));
 const pad = (value) => String(value).padStart(2, "0");
+const createEntityId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+const isSafeImageData = (value) => typeof value === "string" && /^data:image\/(?:png|jpeg|jpg|webp|gif|avif|bmp);base64,/i.test(value);
+const isSafeImageSource = (value) => isSafeImageData(value) || /^\/project-defaults\/[a-z0-9_-]+\.svg$/i.test(String(value ?? ""));
 
 const icons = {
   grid: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
   dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="4" rx="1.5"/><rect x="14" y="10" width="7" height="11" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>`,
   panel: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h2m4 0h2M8 15h2m4 0h2M8 18h8"/></svg>`,
   project: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg>`,
+  image: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3 2.5-2 5 5"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>`,
   report: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-7"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.3a2 2 0 0 1-4 0v-.2A2 2 0 0 0 5.8 18l-.1.1a2 2 0 1 1-2.8-2.8L3 15.2A2 2 0 0 0 1.6 12h-.1a2 2 0 0 1 0-4h.2A2 2 0 0 0 3 4.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 9.2.5h.2a2 2 0 0 1 4 0v.2a2 2 0 0 0 3.4 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 21 8h.2a2 2 0 0 1 0 4H21a2 2 0 0 0-1.6 3Z"/></svg>`,
@@ -21,9 +25,11 @@ const icons = {
   chevronLeft: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>`,
   chevronRight: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
   refresh: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4L3 10m0 0V5m0 5h5M4 13a8 8 0 0 0 14.7 4L21 14m0 0v5m0-5h-5"/></svg>`,
   menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>`,
   x: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>`,
+  trash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`,
   user: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>`,
   wifi: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a5.5 5.5 0 0 1 7 0M12 19h.01"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>`,
@@ -44,6 +50,35 @@ const loopDeviceTypes = [
   { key: "input", fa: "ماژول ورودی", en: "Input Module", category: "control" },
   { key: "io", fa: "ماژول ورودی/خروجی", en: "Input/output Module", category: "control" },
 ];
+const deviceIconFiles = {
+  smoke: "SMOKE.svg",
+  heat: "HEAT.svg",
+  multi: "MULTI.svg",
+  manual: "MANUAL.svg",
+  sounder: "SOUNDER.svg",
+  zone: "ZONE.svg",
+  input: "INPUT.svg",
+};
+const manualDeviceIconMarkup = "<svg class=\"device-type-icon manual-device-icon\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-2,.cls-4,.cls-5,.cls-6{fill:none;stroke:#06254b;stroke-miterlimit:10;}.cls-1{stroke-width:0.5px;}.cls-2{stroke-width:1.97px;}.cls-3{fill:#06254b;}.cls-4{stroke-width:0.25px;}.cls-5{stroke-width:0.36px;}.cls-6{stroke-width:0.14px;}</style></defs><rect class=\"manual-background\" x=\"0.3\" y=\"0.3\" width=\"31.4\" height=\"31.4\" rx=\"2.94\"/><rect class=\"manual-fill\" x=\"3.67\" y=\"11.32\" width=\"24.65\" height=\"15.72\" rx=\"1.07\"/><rect class=\"manual-fill\" x=\"9.51\" y=\"3.31\" width=\"12.98\" height=\"5.83\" rx=\"1.92\"/><rect class=\"manual-outline manual-outline-thin\" x=\"0.3\" y=\"0.3\" width=\"31.4\" height=\"31.4\" rx=\"2.94\"/><rect class=\"manual-outline manual-outline-thin\" x=\"3.67\" y=\"11.32\" width=\"24.65\" height=\"15.72\" rx=\"1.07\"/><line class=\"manual-outline manual-outline-heavy\" x1=\"20.98\" y1=\"18.49\" x2=\"23.65\" y2=\"18.49\"/><polygon class=\"manual-solid\" points=\"23.07 20.46 26.48 18.49 23.07 16.52 23.07 20.46\"/><line class=\"manual-outline manual-outline-heavy\" x1=\"11.02\" y1=\"18.49\" x2=\"8.35\" y2=\"18.49\"/><polygon class=\"manual-solid\" points=\"8.93 16.52 5.52 18.49 8.93 20.46 8.93 16.52\"/><circle class=\"manual-solid\" cx=\"16\" cy=\"18.49\" r=\"1.91\"/><rect class=\"manual-outline manual-outline-fine\" x=\"9.51\" y=\"3.31\" width=\"12.98\" height=\"5.83\" rx=\"1.92\"/><path class=\"manual-outline manual-outline-light\" d=\"M12.69,28.19H3.88a1.31,1.31,0,0,1-1.3-1.31V11.63a1.3,1.3,0,0,1,1.3-1.3h24.2a1.31,1.31,0,0,1,1.31,1.3V26.88a1.31,1.31,0,0,1-1.31,1.31h-8.8\"/><path class=\"manual-outline manual-outline-light\" d=\"M19.38,28.27c0,1-1.52,1.76-3.4,1.76s-3.39-.78-3.39-1.76\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"10.62\" y1=\"11.84\" x2=\"7.22\" y2=\"15.24\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"13.68\" y1=\"11.98\" x2=\"11.12\" y2=\"14.54\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"22.21\" y1=\"12.44\" x2=\"17.88\" y2=\"16.77\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"14.28\" y1=\"21.57\" x2=\"10.09\" y2=\"25.77\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"8.95\" y1=\"21.04\" x2=\"7.89\" y2=\"22.1\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"7.89\" y1=\"20.24\" x2=\"5.06\" y2=\"23.07\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"18.81\" y1=\"21.97\" x2=\"14.82\" y2=\"25.84\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"23.41\" y1=\"16.37\" x2=\"26.34\" y2=\"13.04\"/></svg>";
+const smokeDeviceIconMarkup = "<svg class=\"device-type-icon device-inline-icon device-inline-detector\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-3,.cls-4{fill:none;stroke:#06254b;stroke-linecap:round;}.cls-1,.cls-4{stroke-miterlimit:10;}.cls-1{stroke-width:0.79px;}.cls-2{fill:#06254b;}.cls-3{stroke-linejoin:round;}.cls-3,.cls-4{stroke-width:0.75px;}</style></defs><path class=\"device-hover-shape cls-1\" d=\"M27.29,14.05s2.18-.64,2.26-2.34c.16-3.77-8.13-4.89-13.94-4.83S2.43,8,2,10.85C1.66,13.07,4.15,14,4.15,14\"/><path class=\"device-hover-shape cls-1\" d=\"M29.75,11.48s.77-5.1.23-6.68S26.71.65,15.14.81C1.57,1,1.83,5.36,1.83,5.36l.08,5.57\"/><ellipse class=\"device-hover-shape cls-1\" cx=\"15.59\" cy=\"15.79\" rx=\"8.94\" ry=\"2.69\"/><path class=\"device-hover-shape cls-1\" d=\"M6.58,14.87s-1.76-1.36-1.49-3S11,8.92,16,9s9.81,1.09,10.11,3a4,4,0,0,1-1.31,3.34\"/><path class=\"device-hover-shape cls-1\" d=\"M7.82,10.21A10.33,10.33,0,0,0,9,13.81\"/><line class=\"cls-1\" x1=\"12.97\" y1=\"9.07\" x2=\"13.62\" y2=\"13.01\"/><line class=\"cls-1\" x1=\"18.77\" y1=\"9.12\" x2=\"17.85\" y2=\"13.11\"/><path class=\"device-hover-shape cls-1\" d=\"M23.23,10s-.47,3.15-1.36,3.75\"/><ellipse class=\"device-hover-shape device-original-solid cls-2\" cx=\"15.59\" cy=\"15.79\" rx=\"4.97\" ry=\"1.29\"/><line class=\"cls-1\" x1=\"6.85\" y1=\"17.89\" x2=\"2.73\" y2=\"20.68\"/><line class=\"cls-1\" x1=\"10.03\" y1=\"19.52\" x2=\"7.43\" y2=\"22.47\"/><line class=\"cls-1\" x1=\"13.04\" y1=\"20.33\" x2=\"12.54\" y2=\"22.82\"/><line class=\"cls-1\" x1=\"18.58\" y1=\"19.95\" x2=\"18.66\" y2=\"21.36\"/><line class=\"cls-1\" x1=\"22.18\" y1=\"19.69\" x2=\"24.32\" y2=\"22.16\"/><line class=\"cls-1\" x1=\"24.76\" y1=\"18.02\" x2=\"28.24\" y2=\"20.33\"/><path class=\"device-hover-shape cls-3\" d=\"M1.35,29.52a2.48,2.48,0,0,1,3.12-1.68c.12-2.63,1.77-4.43,5.42-3.24\"/><path class=\"device-hover-shape cls-3\" d=\"M9.76,26.85A3.74,3.74,0,0,1,14,26.69C15,25.29,16,23.9,18.5,24.47\"/><path class=\"device-hover-shape cls-3\" d=\"M18,27.71c.16-4.26,4.38-5.9,8-3.11\"/><path class=\"device-hover-shape cls-4\" d=\"M24.41,28.78s-.33-5.29,5.25-4.26\"/><path class=\"device-hover-shape cls-4\" d=\"M9.93,31.2s1.27-3.49,5.53-2.58\"/></svg>";
+const heatDeviceIconMarkup = "<svg class=\"device-type-icon device-inline-icon device-inline-detector\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1{fill:none;stroke:#06254b;stroke-linecap:round;stroke-miterlimit:10;stroke-width:0.93px;}.cls-2{fill:#06254b;}</style></defs><path class=\"device-hover-shape cls-1\" d=\"M26.7,14s2.07-.61,2.14-2.22c.16-3.57-7.7-4.63-13.21-4.57S3.13,8.3,2.73,11c-.32,2.1,2,2.94,2,2.94\"/><path class=\"device-hover-shape cls-1\" d=\"M29,11.56s.73-4.83.22-6.32S26.15,1.3,15.19,1.45C2.32,1.62,2.57,5.77,2.57,5.77L2.65,11\"/><ellipse class=\"device-hover-shape cls-1\" cx=\"15.61\" cy=\"15.65\" rx=\"8.47\" ry=\"2.55\"/><path class=\"device-hover-shape cls-1\" d=\"M7.07,14.78S5.4,13.49,5.66,11.91,11.23,9.14,16,9.19s9.3,1,9.58,2.82a3.73,3.73,0,0,1-1.24,3.17\"/><path class=\"device-hover-shape cls-1\" d=\"M8.25,10.36A9.6,9.6,0,0,0,9.4,13.77\"/><line class=\"cls-1\" x1=\"13.13\" y1=\"9.28\" x2=\"13.74\" y2=\"13.02\"/><line class=\"cls-1\" x1=\"18.63\" y1=\"9.33\" x2=\"17.76\" y2=\"13.11\"/><path class=\"device-hover-shape cls-1\" d=\"M22.85,10.18s-.44,3-1.29,3.54\"/><ellipse class=\"device-hover-shape device-original-solid cls-2\" cx=\"15.61\" cy=\"15.65\" rx=\"3.92\" ry=\"1.02\"/><path class=\"device-hover-shape cls-1\" d=\"M19.45,30.56c.83-.46,1.91-1.2,1.83-1.95-.1-1-2-1.24-2-2.08s1.93-1,2.07-2.08-1.4-1.52-1.34-2.56c.05-.82,1.06-1.43,2-1.83\"/><path class=\"device-hover-shape cls-1\" d=\"M9.6,30.56c.83-.46,1.92-1.2,1.83-1.95-.1-1-2-1.24-1.95-2.08s1.93-1,2.08-2.08-1.41-1.52-1.35-2.56c0-.82,1.06-1.43,2-1.83\"/><path class=\"device-hover-shape cls-1\" d=\"M4.15,27.38c2-1.24,2.41-2.1,2.32-2.68-.18-1.16-2.36-1.48-2.32-2.44s1.77-1,1.95-2.08c.12-.67-.44-1.33-.93-1.79\"/><path class=\"device-hover-shape cls-1\" d=\"M23.56,27.38c2-1.24,2.41-2.1,2.32-2.68-.18-1.16-2.36-1.48-2.32-2.44s1.77-1,2-2.08c.12-.67-.44-1.33-.93-1.79\"/><path class=\"device-hover-shape cls-1\" d=\"M16.4,29.58c-.86-.55-1.82-1.32-1.71-2.07.15-1,2-1.18,2.08-2.08S15,24.15,14.93,23.11c0-.73.83-1.39,1.59-1.83\"/></svg>";
+const multiDeviceIconMarkup = "<svg class=\"device-type-icon device-inline-icon device-inline-detector\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-2,.cls-3,.cls-5{fill:none;stroke:#06254b;stroke-linecap:round;}.cls-1{stroke-linejoin:round;stroke-width:0.72px;}.cls-2,.cls-3,.cls-5{stroke-miterlimit:10;}.cls-2{stroke-width:0.72px;}.cls-3{stroke-width:0.73px;}.cls-4{fill:#06254b;}.cls-5{stroke-width:0.79px;}</style></defs><path class=\"device-hover-shape cls-1\" d=\"M.57,28.27A1.92,1.92,0,0,1,3,27c.09-2,1.36-3.42,4.17-2.5\"/><path class=\"device-hover-shape cls-1\" d=\"M7.05,26.22a2.87,2.87,0,0,1,3.23-.13c.82-1.07,1.61-2.15,3.51-1.7\"/><path class=\"device-hover-shape cls-1\" d=\"M13.37,26.88c.13-3.28,3.39-4.55,6.17-2.4\"/><path class=\"device-hover-shape cls-2\" d=\"M18.34,27.7s-.26-4.07,4-3.28\"/><path class=\"device-hover-shape cls-2\" d=\"M7.18,29.57a3.51,3.51,0,0,1,4.27-2\"/><path class=\"device-hover-shape cls-3\" d=\"M27.42,13.32s2.19-.62,2.26-2.24c.17-3.59-8.16-4.67-14-4.61S2.43,7.58,2,10.26c-.34,2.12,2,2.82,2,2.82\"/><path class=\"device-hover-shape cls-3\" d=\"M29.69,10.87S30.53,6,30,4.45,26.83.52,15.21.67C1.57.84,1.83,5,1.83,5l.08,5.32\"/><path class=\"device-hover-shape cls-3\" d=\"M11.33,17.23C8.56,16.79,6.68,16,6.68,15c0-1.42,4-2.58,9-2.58s9,1.16,9,2.58c0,.92-1.72,1.74-4.3,2.19\"/><path class=\"device-hover-shape cls-3\" d=\"M6.6,14.1s-1.76-1.3-1.49-2.89S11,8.42,16,8.47s9.86,1,10.16,2.84a3.7,3.7,0,0,1-1.32,3.19\"/><path class=\"device-hover-shape cls-3\" d=\"M7.85,9.65a9.41,9.41,0,0,0,1.22,3.43\"/><line class=\"cls-3\" x1=\"13.03\" y1=\"8.56\" x2=\"13.67\" y2=\"12.33\"/><line class=\"cls-3\" x1=\"18.85\" y1=\"8.61\" x2=\"17.93\" y2=\"12.42\"/><path class=\"device-hover-shape cls-3\" d=\"M23.33,9.46s-.47,3-1.37,3.58\"/><path class=\"device-hover-shape cls-3\" d=\"M18.86,15.4a15.59,15.59,0,0,1-.05,2c-.2,1.09-1.62,1.87-2.91,1.87s-2.73-.72-2.9-1.79c-.07-.45-.07-1.79-.07-2\"/><line class=\"cls-3\" x1=\"15.84\" y1=\"15.43\" x2=\"15.84\" y2=\"17.45\"/><path class=\"device-hover-shape device-original-solid cls-4\" d=\"M28.3,31a.27.27,0,0,1-.24-.39,2.39,2.39,0,0,0,.32-1.4,6.09,6.09,0,0,0-.21-.89l-.32.31a.26.26,0,0,1-.3.05.25.25,0,0,1-.15-.26,3.35,3.35,0,0,0-.73-2.16,4.05,4.05,0,0,1-.77,2.16.26.26,0,0,1-.25.11.26.26,0,0,1-.22-.17,1.28,1.28,0,0,0-.15-.28,2.77,2.77,0,0,0,0,2.39.28.28,0,0,1,0,.3.29.29,0,0,1-.29.08,3.72,3.72,0,0,1-2.49-3,3.28,3.28,0,0,1,.62-2.52,1.48,1.48,0,0,0,.27-.48c.15-.67.18-.94.19-.94a.26.26,0,0,1,.51-.06c.07.17.18.45.32.75a2,2,0,0,1,.17-1,9.15,9.15,0,0,1,.69-1A5.82,5.82,0,0,0,26,21.42a5.35,5.35,0,0,0,.12-1.35.26.26,0,0,1,.15-.25.28.28,0,0,1,.28,0,6.43,6.43,0,0,1,2.1,2.94,6.93,6.93,0,0,1,.16,1.72,2.32,2.32,0,0,0,.62-1.08.27.27,0,0,1,.52,0,21.71,21.71,0,0,0,.77,2.14,5.92,5.92,0,0,1,.37,1.1c.37,1.93-.53,3.38-2.67,4.33A.23.23,0,0,1,28.3,31Zm0-3.44h.06a.29.29,0,0,1,.19.18,8.59,8.59,0,0,1,.36,1.4,2.42,2.42,0,0,1-.09,1c2.15-1.23,1.84-2.83,1.74-3.38a5,5,0,0,0-.35-1c-.15-.37-.33-.83-.56-1.48a3.94,3.94,0,0,1-1,1.13.27.27,0,0,1-.41-.29,5.41,5.41,0,0,0-.08-2.21,5.14,5.14,0,0,0-1.47-2.24,4.1,4.1,0,0,1-.14.92,5.55,5.55,0,0,1-.82,1.32,8.32,8.32,0,0,0-.64.94c-.31.58.05,1.71.27,2.39a.27.27,0,0,1-.12.31.26.26,0,0,1-.33-.05,6.37,6.37,0,0,1-.95-1.63.36.36,0,0,1,0,.1,1.76,1.76,0,0,1-.35.68A2.8,2.8,0,0,0,23,27.81a2.9,2.9,0,0,0,1.55,2.25A3.5,3.5,0,0,1,25,27.43a.26.26,0,0,1,.21-.12.24.24,0,0,1,.21.09,2.58,2.58,0,0,1,.26.34,3.67,3.67,0,0,0,.43-2.06.28.28,0,0,1,.13-.26.28.28,0,0,1,.29,0,3.36,3.36,0,0,1,1.35,2.4l.21-.2A.26.26,0,0,1,28.3,27.56Z\"/><line class=\"cls-5\" x1=\"6.55\" y1=\"17.59\" x2=\"2.42\" y2=\"20.38\"/><line class=\"cls-5\" x1=\"9.72\" y1=\"19.22\" x2=\"7.12\" y2=\"22.17\"/><line class=\"cls-5\" x1=\"12.73\" y1=\"20.04\" x2=\"12.24\" y2=\"22.53\"/><line class=\"cls-5\" x1=\"18.27\" y1=\"20.4\" x2=\"18.35\" y2=\"21.82\"/><line class=\"cls-5\" x1=\"21.87\" y1=\"19.39\" x2=\"24.02\" y2=\"21.87\"/><line class=\"cls-5\" x1=\"24.45\" y1=\"17.72\" x2=\"27.93\" y2=\"20.04\"/></svg>";
+const sounderDeviceIconMarkup = "<svg class=\"device-type-icon device-inline-icon device-inline-sounder\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-2,.cls-3,.cls-4,.cls-5{fill:none;stroke:#06254b;}.cls-1{stroke-linejoin:round;}.cls-1,.cls-2,.cls-4,.cls-5{stroke-width:0.5px;}.cls-2,.cls-3{stroke-linecap:round;}.cls-2,.cls-3,.cls-4{stroke-miterlimit:10;}.cls-3{stroke-width:0.25px;}.cls-5{stroke-miterlimit:10;}</style></defs><path class=\"device-hover-shape cls-1\" d=\"M6.84,4.6s2-1.81,2.8-2.36a11.79,11.79,0,0,1,13.27.11c.71.52,2.53,2.18,2.53,2.18S7.47,4.62,6.84,4.6Z\"/><path class=\"device-hover-shape cls-2\" d=\"M6.92,4.63s-.27,0-.3.35a3.6,3.6,0,0,1-.2.95,8.88,8.88,0,0,1-.61,1.24A2.41,2.41,0,0,0,7,7.49c.88.07,2.7.15,3.6.16,3.07,0,10.7-.11,12.28-.21a21.54,21.54,0,0,0,3.24-.36s0,0,.06,0a12.63,12.63,0,0,1-.65-2.31.22.22,0,0,0-.21-.22C25.13,4.51,7.23,4.63,6.92,4.63Z\"/><path class=\"device-hover-shape cls-2\" d=\"M5.81,7.17a.53.53,0,0,1-.2.1.56.56,0,0,0-.21.09.28.28,0,0,0-.09.18s-.08.56-.08.56a12.49,12.49,0,0,0,3.48.44c2.6.1,8.22.16,11.79.05A41.31,41.31,0,0,0,26.66,8a.93.93,0,0,0,0-.44.67.67,0,0,0-.2-.38.29.29,0,0,0-.29-.11A20.16,20.16,0,0,1,23,7.44c-1.08,0-12.23.42-15.95,0A2.74,2.74,0,0,1,5.81,7.17Z\"/><path class=\"device-hover-shape cls-2\" d=\"M5.24,8l-.37.11c-.41.07-.79.28-.76.78,0,.71,0,5.14,0,6.11a.36.36,0,0,0,.17.31,2.77,2.77,0,0,0,.38.22,11.13,11.13,0,0,0,2.7.75,46.58,46.58,0,0,0,8.11.45c3.25-.14,10.81-.28,12.36-2a.21.21,0,0,0,0-.13c.08-2.26-.11-6.26-.11-6.26s.06-.44-1.09-.65c0,.22,0,.12,0,.25a10.25,10.25,0,0,1-2.21.36c-1.83.18-5.92.32-7.28.29-.92,0-4.14,0-7-.05a20.5,20.5,0,0,1-5-.49A.34.34,0,0,0,5.24,8Z\"/><path class=\"device-hover-shape cls-2\" d=\"M4.24,15.29s-.19.05-.15.33c0,.1.25.29.33.35a8.43,8.43,0,0,0,2.86.86,43.93,43.93,0,0,0,8.16.56c1.36-.07,3.2-.06,5.37-.27a40.19,40.19,0,0,0,5.49-.89c1.07-.33,1.51-.71,1.59-1a.44.44,0,0,0-.12-.36,4.49,4.49,0,0,1-2.08.92c-.3.08-.65.16-1,.22a44.44,44.44,0,0,1-5,.53c-1.09,0-3.17.21-4.16.19-.51,0-1.91,0-3.42,0a38.1,38.1,0,0,1-3.92-.31,15.74,15.74,0,0,1-3.42-.82A5.77,5.77,0,0,1,4.24,15.29Z\"/><path class=\"device-hover-shape cls-2\" d=\"M27.87,15.29s-.29,9.17-.43,12.13c0,.09.13.7-1.48,1.78a12.5,12.5,0,0,1-4.34,1.62v.06l-.73.14-.16.1v.49l-9.81.14,0-.53-.53-.08-.15-.09a20.6,20.6,0,0,1-2.86-.84c0-.15,0-8.86,0-8.86s-2.81-.5-3.17-1.41c0-.31,0-4.22,0-4.22s.17.15.39.31a5.2,5.2,0,0,0,1.62.57c.85.16,2.07.37,3.2.5s2.41.23,2.75.25c.19,0,1.51.08,3.15.06,1.83,0,4.06-.16,5.51-.28a31.78,31.78,0,0,0,5.53-.88,4,4,0,0,0,.59-.22A1.9,1.9,0,0,0,27.87,15.29Z\"/><circle class=\"device-hover-shape cls-3\" cx=\"15.56\" cy=\"18.88\" r=\"0.93\"/><circle class=\"device-hover-shape cls-3\" cx=\"15.56\" cy=\"18.88\" r=\"0.46\"/><path class=\"device-hover-shape cls-2\" d=\"M10.92,31.75,10.74,26A5.62,5.62,0,0,1,11,24.38a4.73,4.73,0,0,1,1-1.49,3.82,3.82,0,0,1,1.47-1,6.35,6.35,0,0,1,2-.4,6.44,6.44,0,0,1,2,.25,5.37,5.37,0,0,1,1.75.9,4.23,4.23,0,0,1,1.21,1.45A5.21,5.21,0,0,1,20.71,26l0,5.64Z\"/><path class=\"device-hover-shape cls-3\" d=\"M11.53,31.08l-.16-4.91a3.65,3.65,0,0,1,.07-.87,4.43,4.43,0,0,1,.39-1.09,4,4,0,0,1,.65-.87,4.08,4.08,0,0,1,1.26-.81,5.48,5.48,0,0,1,1.72-.41,6.27,6.27,0,0,1,1.73.22,4,4,0,0,1,1.42.81,4.7,4.7,0,0,1,.82.93,4.45,4.45,0,0,1,.49,1.16,7,7,0,0,1,.15,1.44L20.13,31Z\"/><ellipse class=\"device-hover-shape cls-3\" cx=\"15.67\" cy=\"26.25\" rx=\"3.7\" ry=\"3.52\"/><ellipse class=\"device-hover-shape cls-3\" cx=\"15.66\" cy=\"26.24\" rx=\"3.11\" ry=\"2.89\"/><ellipse class=\"device-hover-shape cls-3\" cx=\"15.78\" cy=\"25.85\" rx=\"2.71\" ry=\"2.52\"/><ellipse class=\"device-hover-shape cls-3\" cx=\"15.8\" cy=\"25.8\" rx=\"1.7\" ry=\"1.65\"/><path class=\"device-hover-shape cls-3\" d=\"M4.38,15.37s-.14.72,2.22,1.22a48.53,48.53,0,0,0,6.51.74c1.62,0,5.62-.14,5.62-.14s3.16-.21,5-.56a10.87,10.87,0,0,0,3.31-1c.74-.42.59-.66.59-.66a5.81,5.81,0,0,1-1.23.59,12.19,12.19,0,0,1-1.39.35c-.35.07-.64.12-1.39.23s-1.68.21-2.13.25c-1.42.14-4.27.24-5.7.28-.9,0-2.69,0-3.59,0-.46,0-1.38-.07-1.84-.1s-1.19-.1-1.62-.15-.55-.06-1.15-.16-1-.18-1.24-.24-.66-.17-1-.29a5.24,5.24,0,0,1-.58-.22A1.9,1.9,0,0,1,4.38,15.37Z\"/><line class=\"cls-4\" x1=\"7.72\" y1=\"4.62\" x2=\"7.02\" y2=\"7.48\"/><line class=\"cls-4\" x1=\"9.5\" y1=\"4.61\" x2=\"8.97\" y2=\"7.59\"/><line class=\"cls-4\" x1=\"11.19\" y1=\"4.6\" x2=\"10.76\" y2=\"7.62\"/><line class=\"cls-4\" x1=\"12.68\" y1=\"4.6\" x2=\"12.46\" y2=\"7.63\"/><line class=\"cls-4\" x1=\"14.44\" y1=\"4.59\" x2=\"14.44\" y2=\"7.63\"/><line class=\"cls-4\" x1=\"16.45\" y1=\"4.57\" x2=\"16.45\" y2=\"7.61\"/><line class=\"cls-4\" x1=\"18.45\" y1=\"4.56\" x2=\"18.51\" y2=\"7.52\"/><line class=\"cls-4\" x1=\"20.22\" y1=\"4.54\" x2=\"20.82\" y2=\"7.5\"/><line class=\"cls-4\" x1=\"22.18\" y1=\"4.53\" x2=\"23.19\" y2=\"7.39\"/><line class=\"cls-4\" x1=\"24.91\" y1=\"4.53\" x2=\"25.75\" y2=\"7.16\"/><line class=\"cls-4\" x1=\"23.79\" y1=\"4.5\" x2=\"24.51\" y2=\"7.33\"/><path class=\"device-hover-shape cls-5\" d=\"M6.84,4.6c.63,0,18.41-.07,18.6-.07\"/></svg>";
+function deviceIconMarkup(typeKey) {
+  if (typeKey === "manual") return manualDeviceIconMarkup;
+  if (typeKey === "smoke") return smokeDeviceIconMarkup;
+  if (typeKey === "heat") return heatDeviceIconMarkup;
+  if (typeKey === "multi") return multiDeviceIconMarkup;
+  if (typeKey === "sounder") return sounderDeviceIconMarkup;
+  const file = deviceIconFiles[typeKey];
+  if (!file) return `<span class="device-type-icon device-type-icon-empty" aria-hidden="true"></span>`;
+  const className = ["smoke", "heat", "multi", "sounder"].includes(typeKey)
+    ? `device-type-icon device-icon-${typeKey}`
+    : typeKey === "input"
+      ? "device-type-icon input-device-icon"
+      : "device-type-icon";
+  return `<img class="${className}" src="/icons/${file}" alt="" aria-hidden="true" loading="lazy" />`;
+}
 const loopCategories = ["relay", "control", "other", "cl-b-s-b", "cl-b-s-c"];
 
 function div(a, b) { return ~~(a / b); }
@@ -235,23 +270,23 @@ const state = {
   holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
   selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
   view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
-  projectMenuOpen: false, panelMenuOpen: false, settingsTreeCollapsed: true, selectedManagedUserId: "admin",
+  projectMenuOpen: false, panelMenuOpen: false, settingsTreeCollapsed: true, selectedManagedUserId: "admin", projectImagesProjectId: null,
   userAccounts: storedManagedUsers,
   panelUserAccounts: storedPanelUserAccounts,
-  selectedLoopCardId: "loop-1", loopDeviceFilter: "all", selectedLoopDeviceId: null, loopAddError: "", loopAddressConflict: null, loopCards: [],
+  selectedLoopCardId: "loop-1", loopDeviceFilter: "all", loopOnlyPresent: false, loopOnlyActive: false, selectedLoopDeviceId: null, loopAddError: "", loopAddressConflict: null, loopCards: [],
   groupTab: "zone", zoneGroupNumber: 1, zoneLoopCardId: "loop-1", zonePreAlarm: {}, zoneGroups: {},
   ioInputGroupNumber: 1, ioOutputGroupNumber: 1, ioLoopCardId: "loop-1", ioGroups: {}, ioInputGroups: {}, ioOutputGroups: {}, ioRelations: {}, ioSavedRelations: {}, groupSelectedDeviceKey: null, groupPreviewOpen: false, groupRelationCollapsed: false, groupConnectionWarningOpen: false,
   language: localStorage.getItem("fire-panel-language") || "fa",
   openSettingsSections: { system: true, advanced: true, gsm: true },
-  savedSettingFiles: readSettingsFiles(), selectedSavedSettingFileId: null, settingsDirty: false, settingsBaselineSnapshot: null, formValues: {},
+  savedSettingFiles: readSettingsFiles(), selectedSavedSettingFileId: null, settingsDirty: false, settingsBaselineSnapshot: null, formValues: {}, passwordConfirmations: {}, passwordEditing: {},
 };
 if (localStorage.getItem("fire-panel-theme") === "dark") document.documentElement.classList.add("dark");
 
 const projects = [
-  { id: "aftab", name: "مجتمع اداری آفتاب", location: "تهران، خیابان ولیعصر", type: "مجتمع اداری", status: "آنلاین", panels: [{ id: "aftab-main", name: "پنل اصلی ساختمان", code: "FIRE-CTRL-04", status: "متصل", alarms: 0 }, { id: "aftab-parking", name: "پنل پارکینگ", code: "FIRE-CTRL-05", status: "متصل", alarms: 1 }, { id: "aftab-west", name: "پنل ساختمان غربی", code: "FIRE-CTRL-06", status: "آفلاین", alarms: 0 }] },
-  { id: "shahrak", name: "برج مسکونی شهرک غرب", location: "تهران، شهرک غرب", type: "برج مسکونی", status: "آنلاین", panels: [{ id: "shahrak-main", name: "پنل مرکزی برج", code: "FIRE-CTRL-11", status: "متصل", alarms: 0 }, { id: "shahrak-west", name: "پنل لابی و پارکینگ", code: "FIRE-CTRL-12", status: "متصل", alarms: 2 }] },
-  { id: "mehr", name: "کارخانه صنایع مهر", location: "البرز، شهرک صنعتی", type: "کارخانه صنعتی", status: "نیازمند بررسی", panels: [{ id: "mehr-main", name: "پنل سالن تولید", code: "FIRE-CTRL-21", status: "متصل", alarms: 0 }, { id: "mehr-office", name: "پنل ساختمان اداری", code: "FIRE-CTRL-22", status: "آفلاین", alarms: 0 }, { id: "mehr-storage", name: "پنل انبار", code: "FIRE-CTRL-23", status: "متصل", alarms: 1 }, { id: "mehr-gate", name: "پنل نگهبانی", code: "FIRE-CTRL-24", status: "متصل", alarms: 0 }] },
-  { id: "nik", name: "هتل نیکان", location: "مشهد، بلوار سجاد", type: "هتل", status: "آنلاین", panels: [{ id: "nik-main", name: "پنل اصلی هتل", code: "FIRE-CTRL-31", status: "متصل", alarms: 0 }, { id: "nik-kitchen", name: "پنل آشپزخانه", code: "FIRE-CTRL-32", status: "متصل", alarms: 0 }] },
+  { id: "aftab", name: "مجتمع اداری آفتاب", location: "تهران، خیابان ولیعصر", type: "مجتمع اداری", image: "/project-defaults/project-placeholder.svg", status: "آنلاین", panels: [{ id: "aftab-main", name: "پنل اصلی ساختمان", code: "FIRE-CTRL-04", status: "متصل", alarms: 0 }, { id: "aftab-parking", name: "پنل پارکینگ", code: "FIRE-CTRL-05", status: "متصل", alarms: 1 }, { id: "aftab-west", name: "پنل ساختمان غربی", code: "FIRE-CTRL-06", status: "آفلاین", alarms: 0 }] },
+  { id: "shahrak", name: "برج مسکونی شهرک غرب", location: "تهران، شهرک غرب", type: "برج مسکونی", image: "/project-defaults/project-placeholder.svg", status: "آنلاین", panels: [{ id: "shahrak-main", name: "پنل مرکزی برج", code: "FIRE-CTRL-11", status: "متصل", alarms: 0 }, { id: "shahrak-west", name: "پنل لابی و پارکینگ", code: "FIRE-CTRL-12", status: "متصل", alarms: 2 }] },
+  { id: "mehr", name: "کارخانه صنایع مهر", location: "البرز، شهرک صنعتی", type: "کارخانه صنعتی", image: "/project-defaults/project-placeholder.svg", status: "نیازمند بررسی", panels: [{ id: "mehr-main", name: "پنل سالن تولید", code: "FIRE-CTRL-21", status: "متصل", alarms: 0 }, { id: "mehr-office", name: "پنل ساختمان اداری", code: "FIRE-CTRL-22", status: "آفلاین", alarms: 0 }, { id: "mehr-storage", name: "پنل انبار", code: "FIRE-CTRL-23", status: "متصل", alarms: 1 }, { id: "mehr-gate", name: "پنل نگهبانی", code: "FIRE-CTRL-24", status: "متصل", alarms: 0 }] },
+  { id: "nik", name: "هتل نیکان", location: "مشهد، بلوار سجاد", type: "هتل", image: "/project-defaults/project-placeholder.svg", status: "آنلاین", panels: [{ id: "nik-main", name: "پنل اصلی هتل", code: "FIRE-CTRL-31", status: "متصل", alarms: 0 }, { id: "nik-kitchen", name: "پنل آشپزخانه", code: "FIRE-CTRL-32", status: "متصل", alarms: 0 }] },
 ];
 
 function makeLoopDevice(cardId, number, typeKey, overrides = {}) {
@@ -296,9 +331,82 @@ const APP_STATE_KEYS = [...new Set([
   ...SETTINGS_SNAPSHOT_KEYS,
   "view", "selectedProjectId", "selectedPanelId", "selectedSettingId",
   "sidebarCollapsed", "openSettingsSections", "savedSettingFiles", "selectedManagedUserId",
+  "loopDeviceFilter", "loopOnlyPresent", "loopOnlyActive",
 ])];
+const APPLICATION_STATE_CACHE_KEY = "fire-panel-application-state-cache";
 let databasePersistenceReady = false;
 let databaseSaveTimer = null;
+let databaseSaveChain = Promise.resolve();
+
+function readApplicationStateCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(APPLICATION_STATE_CACHE_KEY) || "null");
+    return cached && cached.payload && typeof cached.payload === "object" ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheApplicationState(payload, savedAt = new Date().toISOString()) {
+  try {
+    localStorage.setItem(APPLICATION_STATE_CACHE_KEY, JSON.stringify({ savedAt, payload }));
+  } catch (error) {
+    console.warn("Local application state cache could not be written.", error);
+  }
+}
+
+function isCorruptedText(value) {
+  const text = String(value ?? "").trim();
+  return !text || /^\?+(?:\s+\?+)*$/.test(text);
+}
+
+function normalizeProjectGallery(project) {
+  const rawImages = Array.isArray(project.images) ? project.images : [];
+  const gallery = rawImages.map((item, index) => {
+    const source = typeof item === "string" ? item : item?.src || item?.image || "";
+    if (!isSafeImageSource(source)) return null;
+    return {
+      id: String(typeof item === "string" ? `${project.id}-image-${index + 1}` : item.id || `${project.id}-image-${index + 1}`),
+      src: source,
+      name: typeof item === "object" ? String(item.name || "") : "",
+      createdAt: typeof item === "object" ? item.createdAt || null : null,
+    };
+  }).filter(Boolean);
+  const cover = isSafeImageSource(project.image) ? project.image : "";
+  if (cover && !gallery.some((item) => item.src === cover)) {
+    gallery.unshift({ id: `${project.id}-cover`, src: cover, name: "", createdAt: null });
+  }
+  return gallery;
+}
+
+function normalizePersistedProjects(items) {
+  const defaults = new Map(projects.map((project) => [project.id, project]));
+  return items.map((project) => {
+    const fallback = defaults.get(project.id);
+    if (!fallback) return { ...project, images: normalizeProjectGallery(project) };
+    const normalized = { ...fallback, ...project };
+    if (isCorruptedText(project.name)) normalized.name = fallback.name;
+    if (isCorruptedText(project.location)) normalized.location = fallback.location;
+    if (isCorruptedText(project.type)) normalized.type = fallback.type;
+    if (isCorruptedText(project.status)) normalized.status = fallback.status;
+    // An explicit empty string means the user intentionally removed the image.
+    // Only missing or malformed persisted values should fall back to the sample image.
+    if (!Object.prototype.hasOwnProperty.call(project, "image") || (project.image !== "" && !isSafeImageSource(project.image))) normalized.image = fallback.image;
+    normalized.images = normalizeProjectGallery(normalized);
+    if (Array.isArray(project.panels)) {
+      const fallbackPanels = new Map(fallback.panels.map((panel) => [panel.id, panel]));
+      normalized.panels = project.panels.map((panel) => {
+        const fallbackPanel = fallbackPanels.get(panel.id);
+        if (!fallbackPanel) return panel;
+        const normalizedPanel = { ...panel };
+        if (isCorruptedText(panel.name)) normalizedPanel.name = fallbackPanel.name;
+        if (isCorruptedText(panel.status)) normalizedPanel.status = fallbackPanel.status;
+        return normalizedPanel;
+      });
+    }
+    return normalized;
+  });
+}
 
 function captureApplicationState() {
   const persistedState = APP_STATE_KEYS.reduce((snapshot, key) => {
@@ -315,8 +423,8 @@ function captureApplicationState() {
 
 function applyApplicationState(payload) {
   if (!payload || typeof payload !== "object") return;
-  if (Array.isArray(payload.projects) && payload.projects.length) {
-    projects.splice(0, projects.length, ...cloneSettingsData(payload.projects));
+  if (Array.isArray(payload.projects)) {
+    projects.splice(0, projects.length, ...normalizePersistedProjects(cloneSettingsData(payload.projects)));
   }
   const savedState = payload.state && typeof payload.state === "object" ? payload.state : {};
   APP_STATE_KEYS.forEach((key) => {
@@ -341,16 +449,34 @@ function applyApplicationState(payload) {
 }
 
 async function loadApplicationState() {
+  const cached = readApplicationStateCache();
   try {
     const response = await fetch("/api/state", { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`State API returned ${response.status}`);
     const result = await response.json();
-    if (result.payload) applyApplicationState(result.payload);
+    const remoteTime = result.updatedAt ? Date.parse(result.updatedAt) : 0;
+    const cachedTime = cached?.savedAt ? Date.parse(cached.savedAt) : 0;
+    if (cached?.payload && cachedTime > remoteTime + 500) {
+      applyApplicationState(cached.payload);
+      databasePersistenceReady = true;
+      void saveApplicationStateNow();
+      return true;
+    }
+    if (result.payload) {
+      applyApplicationState(result.payload);
+      cacheApplicationState(result.payload, result.updatedAt || new Date().toISOString());
+    } else if (cached?.payload) {
+      applyApplicationState(cached.payload);
+      databasePersistenceReady = true;
+      void saveApplicationStateNow();
+      return true;
+    }
     databasePersistenceReady = true;
     return Boolean(result.payload);
   } catch (error) {
+    if (cached?.payload) applyApplicationState(cached.payload);
     databasePersistenceReady = true;
-    console.warn("PostgreSQL state load failed; using local fallback.", error);
+    console.warn("PostgreSQL state load failed; using the latest local fallback.", error);
     return false;
   }
 }
@@ -358,18 +484,33 @@ async function loadApplicationState() {
 function queueApplicationStateSave() {
   if (!databasePersistenceReady) return;
   clearTimeout(databaseSaveTimer);
-  databaseSaveTimer = setTimeout(async () => {
-    try {
+  databaseSaveTimer = setTimeout(() => {
+    databaseSaveTimer = null;
+    void saveApplicationStateNow();
+  }, 350);
+}
+
+function saveApplicationStateNow() {
+  const payload = captureApplicationState();
+  const savedAt = new Date().toISOString();
+  cacheApplicationState(payload, savedAt);
+  if (!databasePersistenceReady) return Promise.resolve();
+  databaseSaveChain = databaseSaveChain
+    .catch(() => {})
+    .then(async () => {
       const response = await fetch("/api/state", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ payload: captureApplicationState() }),
+        body: JSON.stringify({ payload }),
       });
       if (!response.ok) throw new Error(`State API returned ${response.status}`);
-    } catch (error) {
+      const result = await response.json().catch(() => null);
+      cacheApplicationState(payload, result?.updatedAt || savedAt);
+    })
+    .catch((error) => {
       console.warn("PostgreSQL state save failed; local state remains available.", error);
-    }
-  }, 350);
+    });
+  return databaseSaveChain;
 }
 
 const settingsTree = [
@@ -402,6 +543,46 @@ const settingsTree = [
 
 const findProject = () => projects.find((project) => project.id === state.selectedProjectId) || projects[0];
 const findPanel = () => findProject().panels.find((panel) => panel.id === state.selectedPanelId) || findProject().panels[0];
+
+function deleteProject(projectId) {
+  const projectIndex = projects.findIndex((project) => project.id === projectId);
+  if (projectIndex < 0) return;
+  const project = projects[projectIndex];
+  const english = state.language === "en";
+  const message = english
+    ? `Delete project “${project.name}” and its ${project.panels.length} panel(s)? This action cannot be undone.`
+    : `\u067e\u0631\u0648\u0698\u0647 \u00ab${project.name}\u00bb \u0648 ${faDigits(project.panels.length)} \u067e\u0646\u0644 \u0622\u0646 \u062d\u0630\u0641 \u0634\u0648\u062f\u061f \u0627\u06cc\u0646 \u06a9\u0627\u0631 \u0642\u0627\u0628\u0644 \u0628\u0627\u0632\u06af\u0634\u062a \u0646\u06cc\u0633\u062a.`;
+  if (!window.confirm(message)) return;
+
+  const deletedPanelIds = new Set(project.panels.map((panel) => panel.id));
+  projects.splice(projectIndex, 1);
+  if (Array.isArray(state.savedSettingFiles) && deletedPanelIds.size) {
+    state.savedSettingFiles = state.savedSettingFiles.filter((file) => !deletedPanelIds.has(file.panelId));
+    if (state.selectedSavedSettingFileId && !state.savedSettingFiles.some((file) => file.id === state.selectedSavedSettingFileId)) {
+      state.selectedSavedSettingFileId = null;
+    }
+    persistSettingsFiles();
+  }
+  (state.userAccounts || []).forEach((user) => {
+    if (user.access?.projects) delete user.access.projects[projectId];
+  });
+  if (state.selectedProjectId === projectId) {
+    state.selectedProjectId = null;
+    state.selectedPanelId = null;
+    state.connectedPanelId = null;
+    state.view = "projects";
+    state.projectMenuOpen = false;
+    state.panelMenuOpen = false;
+  }
+  state.settingsDirty = false;
+  state.settingsBaselineSnapshot = captureSettingsSnapshot();
+  localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
+  clearTimeout(databaseSaveTimer);
+  databaseSaveTimer = null;
+  void saveApplicationStateNow();
+  renderApp();
+  showToast(english ? `${project.name} was deleted.` : `\u067e\u0631\u0648\u0698\u0647 \u00ab${project.name}\u00bb \u062d\u0630\u0641 \u0634\u062f.`, "info");
+}
 
 const translations = {
   "فضای کاری": "Workspace", "پروژه‌ها": "Projects", "فضای مانیتورینگ": "Monitoring workspace", "پنل‌های من": "My panels", "رویدادها": "Events", "گزارش‌ها": "Reports", "مدیریت پنل": "Panel management", "حساب نصاب": "Installer account", "دسترسی فعال": "Active access", "پشتیبانی فنی": "Technical support", "همراه شما برای راه‌اندازی": "Here to help with setup", "آماده به کار": "Ready", "بدون اتصال به پنل": "No panel connected", "متصل به پنل": "Connected to panel", "تنظیمات پنل": "Panel settings", "تنظیمات پروژه": "Project settings", "پروژه‌های من": "My projects", "پروژه را انتخاب کنید تا پنل‌ها و تنظیمات آن را مدیریت کنید.": "Select a project to manage its panels and settings.", "پروژه‌ها و پنل‌های تحت مدیریت شما": "Projects and panels under your management", "فضای کاری شما": "Your workspace", "پروژه فعال": "Active projects", "پنل ثبت‌شده": "Registered panels", "نیازمند بررسی": "Needs attention", "پروژه آنلاین": "Online projects", "پروژه": "Project", "پنل": "Panel", "پنل‌های پروژه": "Project panels", "در این پروژه": "in this project", "پنل جدید اضافه کنید": "Add a new panel", "اتصال پنل در نسخه بعدی": "Panel connection is coming next", "راهنمای تنظیمات": "Settings guide", "برای مشاهده هر بخش، گزینه‌ی آن را انتخاب کنید.": "Select an item to view its settings.", "فضای نصاب": "Installer workspace", "پنل‌ها": "Panels", "پیکربندی پنل": "Panel configuration", "پروژه‌های فعال": "Active projects", "خواندن": "Read", "خواندن از پنل": "Read from panel", "ذخیره تنظیمات": "Save settings", "ذخیره تغییرات": "Save changes", "اعمال روی پنل": "Apply to panel", "انصراف": "Cancel", "اتصال": "Connect", "قطع اتصال": "Disconnect", "اتصال پنل برای این پروژه فعال نیست": "Panel is not connected for this project", "مقادیر فعلاً در فرم نگه‌داری می‌شوند و بعد از اتصال قابل ارسال خواهند بود.": "Values stay in this form until the panel connection is established.", "تنظیم تاریخ و ساعت": "Set date and time", "تاریخ پنل": "Panel date", "ساعت پنل": "Panel time", "فرمت ساعت ۲۴ ساعته": "24-hour format", "مقدار انتخاب‌شده": "Selected value", "معادل میلادی": "Gregorian equivalent", "شمسی": "Jalali", "زبان رابط کاربری": "Interface language", "زبان نرم‌افزار": "Application language", "نام پروژه‌ها و پنل‌ها بدون تغییر باقی می‌ماند.": "Project and panel names stay unchanged.", "وضعیت تنظیمات": "Settings status", "آخرین وضعیت همگام‌سازی": "Latest synchronization status", "پنل انتخاب‌شده": "Selected panel", "آخرین همگام‌سازی": "Last synchronization", "هنوز انجام نشده": "Not synchronized yet", "منطقه زمانی": "Time zone", "تهران (UTC+۳:۳۰)": "Tehran (UTC+3:30)", "مراحل بعدی": "Next steps", "امکاناتی که به‌زودی فعال می‌شوند": "Features coming soon", "انتخاب پروژه و پنل": "Select project and panel", "ساختار اولیه آماده است": "Initial structure is ready", "در حال پیاده‌سازی": "In progress", "اتصال و همگام‌سازی": "Connection and synchronization", "در نسخه بعدی": "In the next version", "فعال": "Active", "آماده": "Ready", "پیش‌نویس": "Draft", "آنلاین": "Online", "آفلاین": "Offline", "متصل": "Connected", "هشدار": "Alert", "همه پروژه‌ها": "All projects", "مجتمع اداری": "Office complex", "برج مسکونی": "Residential tower", "کارخانه صنعتی": "Industrial factory", "هتل": "Hotel", "تهران، خیابان ولیعصر": "Tehran, Valiasr Street", "تهران، شهرک غرب": "Tehran, Shahrak-e Gharb", "البرز، شهرک صنعتی": "Alborz, Industrial Town", "مشهد، بلوار سجاد": "Mashhad, Sajjad Boulevard",
@@ -650,6 +831,7 @@ function renderShell() {
         <nav class="side-nav" aria-label="منوی اصلی">
           <p class="nav-caption">فضای کاری</p>
           <button class="nav-item active" type="button" data-nav-view="projects">${icons.project}<span>پروژه‌ها</span><em>۴</em></button>
+          <button class="nav-item" type="button" data-nav-view="project-images">${icons.image}<span>عکس‌های پروژه</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace">${icons.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
           <p class="nav-caption nav-space">مدیریت</p>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="loop-card">${icons.panel}<span>پنل‌های من</span></button>
@@ -659,12 +841,12 @@ function renderShell() {
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="events">${icons.bell}<span>رویدادها</span><em class="warning-count">۲</em></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="report">${icons.report}<span>گزارش‌ها</span></button>
         </nav>
-        <div class="sidebar-promo"><div class="sidebar-promo-head"><span class="sidebar-promo-icon">${icons.settings}</span><div><strong>نسخه حرفه‌ای پایش‌</strong><p>گزارش‌های پیشرفته را فعال کنید.</p></div></div><button type="button">ارتقای حساب</button></div>
+        <div class="sidebar-promo"><div class="sidebar-promo-head"><span class="sidebar-promo-icon">${icons.settings}</span><div><strong>نسخه حرفه‌ای پایش‌</strong><p>گزارش‌های پیشرفته را فعال کنید.</p></div></div><button type="button" data-upgrade-account>ارتقای حساب</button></div>
       </aside>
       <main class="main-content">
         <header class="topbar">
           <div class="topbar-start"><button class="icon-button menu-button" id="menu-button" aria-label="باز کردن منو" aria-expanded="false">${icons.menu}</button><div><h1 id="topbar-title">پروژه‌ها</h1><p id="topbar-subtitle">پروژه‌ها و پنل‌های تحت مدیریت شما</p></div></div>
-          <div class="topbar-end"><div class="connection-status"><span class="status-pulse"></span><div><b id="connection-title">آماده به کار</b><small id="connection-subtitle">بدون اتصال به پنل</small></div></div><button class="notification-button theme-toggle" id="theme-toggle" aria-label="فعال‌سازی حالت تاریک">${icons.moon}</button><button class="notification-button" aria-label="اعلان‌ها">${icons.bell}<span></span></button><div class="profile"><span class="avatar">ح‌خ</span><div><b>حسان خسروجردی</b><small>نصاب سیستم</small></div>${icons.chevronDown}</div></div>
+          <div class="topbar-end"><div class="connection-status"><span class="status-pulse"></span><div><b id="connection-title">آماده به کار</b><small id="connection-subtitle">بدون اتصال به پنل</small></div></div><button class="notification-button theme-toggle" id="theme-toggle" aria-label="فعال‌سازی حالت تاریک">${icons.moon}</button><button class="notification-button" data-notifications aria-label="اعلان‌ها">${icons.bell}<span></span></button><div class="profile"><span class="avatar">ح‌خ</span><div><b>حسان خسروجردی</b><small>نصاب سیستم</small></div>${icons.chevronDown}</div></div>
         </header>
         <div class="content-wrap" id="content-root"></div>
       </main>
@@ -672,40 +854,146 @@ function renderShell() {
     </div>`;
 }
 
+
 function renderProjectsPage() {
+  const english = state.language === "en";
   const totalPanels = projects.reduce((sum, project) => sum + project.panels.length, 0);
-  return `<section class="breadcrumb"><b>پروژه‌ها</b></section><section class="page-intro"><div><div class="eyebrow">فضای نصاب</div><h2>پروژه‌های من</h2><p>پروژه را انتخاب کنید تا پنل‌ها و تنظیمات آن را مدیریت کنید.</p></div><div class="project-summary"><span>${icons.project}</span><div><small>فضای کاری شما</small><b>${faDigits(projects.length)} پروژه فعال · ${faDigits(totalPanels)} پنل</b></div></div></section><section class="project-stats"><div><span class="stat-dot green"></span><b>${faDigits(projects.filter((project) => project.status === "آنلاین").length)}</b><small>پروژه آنلاین</small></div><div><span class="stat-dot blue"></span><b>${faDigits(totalPanels)}</b><small>پنل ثبت‌شده</small></div><div><span class="stat-dot amber"></span><b>۳</b><small>نیازمند بررسی</small></div></section><section class="projects-grid">${projects.map(renderProjectCard).join("")}</section>`;
+  const onlineProjects = projects.filter((project) => project.status === "آنلاین" || project.status === "Online").length;
+  const attentionProjects = projects.filter((project) => project.status !== "آنلاین" && project.status !== "Online").length;
+  return "<section class='breadcrumb'><b>" + (english ? "Projects" : "پروژه‌ها") + "</b></section>"
+    + "<section class='page-intro'><div class='page-intro-copy'><div class='eyebrow'>" + (english ? "INSTALLER WORKSPACE" : "فضای نصاب") + "</div><h2>" + (english ? "My projects" : "پروژه‌های من") + "</h2><p>" + (english ? "Select a project to manage its panels, settings, and monitoring." : "پروژه را انتخاب کنید تا پنل‌ها، تنظیمات و مانیتورینگ آن را مدیریت کنید.") + "</p></div><div class='page-intro-actions'><div class='project-summary'><span>" + icons.project + "</span><div><small>" + (english ? "Your workspace" : "فضای کاری شما") + "</small><b>" + faDigits(projects.length) + " " + (english ? "projects" : "پروژه") + " · " + faDigits(totalPanels) + " " + (english ? "panels" : "پنل") + "</b></div></div><button type='button' class='btn-primary project-create-button' data-project-create>" + icons.plus + (english ? "Create project" : "ایجاد پروژه") + "</button></div></section>"
+    + "<section class='project-stats'><div><span class='stat-dot green'></span><b>" + faDigits(onlineProjects) + "</b><small>" + (english ? "Online projects" : "پروژه آنلاین") + "</small></div><div><span class='stat-dot blue'></span><b>" + faDigits(totalPanels) + "</b><small>" + (english ? "Registered panels" : "پنل ثبت‌شده") + "</small></div><div><span class='stat-dot amber'></span><b>" + faDigits(attentionProjects) + "</b><small>" + (english ? "Needs review" : "نیازمند بررسی") + "</small></div></section>"
+    + "<section class='projects-grid'>" + projects.map(renderProjectCard).join("") + "</section>";
+}
+
+function renderProjectImagesPage() {
+  const english = state.language === "en";
+  return "<section class='breadcrumb'><b>" + (english ? "Project images" : "عکس‌های پروژه") + "</b></section>"
+    + "<section class='page-intro'><div class='page-intro-copy'><div class='eyebrow'>" + (english ? "PROJECT MEDIA" : "رسانه پروژه‌ها") + "</div><h2>" + (english ? "Project images" : "عکس‌های پروژه") + "</h2><p>" + (english ? "Add or replace the image displayed on each project card." : "تصویر نمایش‌داده‌شده روی کارت هر پروژه را اضافه یا جایگزین کنید.") + "</p></div></section>"
+    + "<section class='project-images-grid'>" + projects.map((project) => {
+      const hasImage = isSafeImageSource(project.image);
+      return "<article class='project-image-manager-card'><div class='project-image-manager-preview' data-project-image-container>"
+        + (hasImage
+          ? "<img class='project-image-manager-image' data-project-image-id='" + escapeHtml(project.id) + "' alt='' decoding='async'>"
+          : "<div class='project-image-empty'>" + icons.image + "<span>" + (english ? "No image" : "بدون تصویر") + "</span></div>")
+        + "</div><div class='project-image-manager-copy'><h3>" + escapeHtml(project.name) + "</h3><small>" + escapeHtml(project.location) + "</small></div><div class='project-image-manager-actions'><label class='btn-primary project-image-upload-button'>" + icons.image + (english ? "Choose image" : "انتخاب تصویر") + "<input type='file' accept='image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp' data-project-image-input data-project-id='" + escapeHtml(project.id) + "'></label><button type='button' class='btn-secondary' data-project-image-remove data-project-id='" + escapeHtml(project.id) + "'" + (hasImage ? "" : " disabled") + ">" + (english ? "Remove image" : "حذف تصویر") + "</button></div></article>";
+    }).join("") + "</section>";
+}
+
+function renderProjectImagesDetail(project) {
+  const english = state.language === "en";
+  const images = Array.isArray(project.images) ? project.images : [];
+  const content = images.length ? images.map((image) => {
+    const isCover = image.src === project.image;
+    return "<article class='project-gallery-item" + (isCover ? " is-cover" : "") + "'><div class='project-gallery-preview' data-project-image-container><img class='project-gallery-image' data-project-image-id='" + escapeHtml(project.id) + "' data-project-gallery-image-id='" + escapeHtml(image.id) + "' alt='' decoding='async'>" + (isCover ? "<span class='project-gallery-cover-badge'>" + (english ? "Cover" : "کاور") + "</span>" : "") + "</div><div class='project-gallery-item-footer'><small>" + escapeHtml(image.name || (english ? "Project image" : "تصویر پروژه")) + "</small><div><button type='button' class='btn-primary btn-small' data-project-image-cover data-project-id='" + escapeHtml(project.id) + "' data-project-gallery-image-id='" + escapeHtml(image.id) + "'" + (isCover ? " disabled" : "") + ">" + (english ? "Set as cover" : "انتخاب به‌عنوان کاور") + "</button><button type='button' class='btn-secondary btn-small' data-project-gallery-remove data-project-id='" + escapeHtml(project.id) + "' data-project-gallery-image-id='" + escapeHtml(image.id) + "'>" + (english ? "Remove" : "حذف") + "</button></div></div></article>";
+  }).join("") : "<div class='project-gallery-empty'>" + icons.image + "<b>" + (english ? "No images yet" : "هنوز تصویری اضافه نشده است") + "</b><small>" + (english ? "Add the first image for this project." : "اولین تصویر این پروژه را اضافه کنید.") + "</small></div>";
+  return "<section class='breadcrumb'><button type='button' class='project-images-back' data-project-images-back>" + icons.chevronRight + (english ? "All projects" : "همه پروژه‌ها") + "</button><b>" + escapeHtml(project.name) + "</b></section>"
+    + "<section class='page-intro project-gallery-heading'><div class='page-intro-copy'><div class='eyebrow'>" + (english ? "PROJECT GALLERY" : "گالری پروژه") + "</div><h2>" + escapeHtml(project.name) + "</h2><p>" + (english ? "Choose any gallery image as the project cover." : "هر تصویر گالری را می‌توانید به‌عنوان کاور پروژه انتخاب کنید.") + "</p></div><label class='btn-primary project-image-upload-button project-gallery-upload'>" + icons.plus + (english ? "Add image" : "افزودن تصویر") + "<input type='file' accept='image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp' data-project-image-input data-project-id='" + escapeHtml(project.id) + "'></label></section>"
+    + "<section class='project-gallery-grid'>" + content + "</section>";
+}
+
+function renderProjectImagesPageV2() {
+  const english = state.language === "en";
+  const selectedProject = projects.find((project) => project.id === state.projectImagesProjectId);
+  if (selectedProject) return renderProjectImagesDetail(selectedProject);
+  return "<section class='breadcrumb'><b>" + (english ? "Project images" : "عکس‌های پروژه") + "</b></section>"
+    + "<section class='page-intro'><div class='page-intro-copy'><div class='eyebrow'>" + (english ? "PROJECT MEDIA" : "رسانه پروژه‌ها") + "</div><h2>" + (english ? "Project images" : "عکس‌های پروژه") + "</h2><p>" + (english ? "Open a project to manage its cover and gallery images." : "برای مدیریت کاور و تصاویر گالری، یک پروژه را باز کنید.") + "</p></div></section>"
+    + "<section class='project-images-grid project-image-project-list'>" + projects.map((project) => {
+      const hasImage = isSafeImageSource(project.image);
+      const count = Array.isArray(project.images) ? project.images.length : 0;
+      return "<article class='project-image-manager-card project-image-project-card' data-project-images-open data-project-image-project-id='" + escapeHtml(project.id) + "'><div class='project-image-manager-preview' data-project-image-container>"
+        + (hasImage ? "<img class='project-image-manager-image' data-project-image-id='" + escapeHtml(project.id) + "' alt='' decoding='async'>" : "<div class='project-image-empty'>" + icons.image + "<span>" + (english ? "No cover" : "بدون کاور") + "</span></div>")
+        + "</div><div class='project-image-manager-copy'><h3>" + escapeHtml(project.name) + "</h3><small>" + faDigits(count) + " " + (english ? "images" : "تصویر در گالری") + "</small></div><div class='project-image-manager-actions'><button type='button' class='btn-primary' data-project-images-open-button data-project-image-project-id='" + escapeHtml(project.id) + "'>" + icons.image + (english ? "Open gallery" : "بازکردن گالری") + "</button></div></article>";
+    }).join("") + "</section>";
 }
 
 function renderProjectCard(project) {
-  const online = project.panels.filter((panel) => panel.status === "متصل").length;
-  const alarms = project.panels.reduce((sum, panel) => sum + panel.alarms, 0);
-  return `<button type="button" class="project-card" data-project-id="${project.id}"><div class="project-card-visual"><div class="building-illustration">${icons.project}<span></span><span></span><span></span></div><span class="project-status ${project.status === "آنلاین" ? "online" : "attention"}"><i></i>${project.status}</span><span class="project-card-arrow">${icons.chevronLeft}</span></div><div class="project-card-body"><div class="project-card-title"><div><small>${project.type}</small><h3>${project.name}</h3></div><span class="project-more">•••</span></div><p>${icons.project}${project.location}</p><div class="project-card-footer"><span>${icons.panel}<b>${faDigits(project.panels.length)}</b> پنل</span><span class="online-count"><i></i>${faDigits(online)} متصل</span>${alarms ? `<span class="alarm-count">${faDigits(alarms)} هشدار</span>` : ""}</div></div></button>`;
+  const english = state.language === "en";
+  const online = project.panels.filter((panel) => panel.status === "متصل" || panel.status === "Online").length;
+  const alarms = project.panels.reduce((sum, panel) => sum + Number(panel.alarms || 0), 0);
+  const projectStatus = project.status === "آنلاین" || project.status === "Online" ? (english ? "Online" : "آنلاین") : (english ? "Needs review" : project.status);
+  // Keep large Data URLs out of innerHTML. The image is assigned after the
+  // card has been mounted so uploaded images remain reliable in all browsers.
+  const projectImage = isSafeImageSource(project.image) ? "<img class='project-card-image' data-project-image-id='" + escapeHtml(project.id) + "' alt='' decoding='async'>" : "<div class='building-illustration'>" + icons.project + "<span></span><span></span><span></span></div>";
+  const coordinateLabel = project.coordinates?.lat !== null && project.coordinates?.lat !== undefined && project.coordinates?.lng !== null && project.coordinates?.lng !== undefined
+    ? ` · ${Number(project.coordinates.lat).toFixed(4)}, ${Number(project.coordinates.lng).toFixed(4)}`
+    : "";
+  return "<button type='button' class='project-card' data-project-id='" + escapeHtml(project.id) + "'><div class='project-card-visual" + (isSafeImageSource(project.image) ? " has-project-image" : "") + "'>" + projectImage + "<span class='project-status " + (project.status === "آنلاین" || project.status === "Online" ? "online" : "attention") + "'><i></i>" + projectStatus + "</span><span class='project-card-arrow'>" + icons.chevronLeft + "</span></div><div class='project-card-body'><div class='project-card-title'><div><small>" + escapeHtml(project.type) + "</small><h3>" + escapeHtml(project.name) + "</h3></div></div><p>" + icons.project + escapeHtml(project.location) + (coordinateLabel ? "<small class='project-coordinate-label' dir='ltr'>" + escapeHtml(coordinateLabel) + "</small>" : "") + "</p><div class='project-card-footer'><span>" + icons.panel + "<b>" + faDigits(project.panels.length) + "</b> " + (english ? "panels" : "پنل") + "</span><span class='online-count'><i></i>" + faDigits(online) + " " + (english ? "connected" : "متصل") + "</span>" + (alarms ? "<span class='alarm-count'>" + faDigits(alarms) + " " + (english ? "alarms" : "هشدار") + "</span>" : "") + "</div></div></button>";
 }
+
+function hydrateProjectCardImages(root) {
+  root.querySelectorAll("img[data-project-image-id]:not([data-project-gallery-image-id])").forEach((image) => {
+    const project = projects.find((item) => item.id === image.dataset.projectImageId);
+    const source = project && isSafeImageSource(project.image) ? project.image : "";
+    if (!source) {
+      image.closest(".project-card-visual")?.classList.remove("has-project-image");
+      image.remove();
+      return;
+    }
+    image.addEventListener("error", () => {
+      if (isSafeImageData(source) && image.dataset.projectImageFallback !== "true") {
+        image.dataset.projectImageFallback = "true";
+        image.src = source;
+        return;
+      }
+      const visual = image.closest("[data-project-image-container]") || image.closest(".project-card-visual");
+      visual?.classList.remove("has-project-image");
+      image.remove();
+      if (visual && !visual.querySelector(".building-illustration, .project-image-empty")) {
+        visual.insertAdjacentHTML("afterbegin", visual.classList.contains("project-image-manager-preview")
+          ? "<div class='project-image-empty'>" + icons.image + "<span>" + (state.language === "en" ? "No image" : "بدون تصویر") + "</span></div>"
+          : "<div class='building-illustration'>" + icons.project + "<span></span><span></span><span></span></div>");
+      }
+    }, { once: true });
+    image.src = isSafeImageData(source)
+      ? `/api/projects/${encodeURIComponent(project.id)}/image`
+      : source;
+  });
+}
+
+function hydrateProjectGalleryImages(root) {
+  root.querySelectorAll("img[data-project-gallery-image-id]").forEach((image) => {
+    const project = projects.find((item) => item.id === image.dataset.projectImageId);
+    const galleryImage = project?.images?.find((item) => item.id === image.dataset.projectGalleryImageId);
+    const source = galleryImage && isSafeImageSource(galleryImage.src) ? galleryImage.src : "";
+    if (!source) {
+      image.closest(".project-gallery-item")?.remove();
+      return;
+    }
+    image.addEventListener("error", () => {
+      if (isSafeImageData(source) && image.dataset.projectImageFallback !== "true") {
+        image.dataset.projectImageFallback = "true";
+        image.src = source;
+        return;
+      }
+      image.closest(".project-gallery-item")?.remove();
+    }, { once: true });
+    image.src = isSafeImageData(source)
+      ? `/api/projects/${encodeURIComponent(project.id)}/images/${encodeURIComponent(galleryImage.id)}`
+      : source;
+  });
+}
+
 
 function renderProjectStrip(project) {
   const english = state.language === "en";
   return `<div class="project-strip-wrap${state.projectMenuOpen ? " open" : " collapsed"}">
     <div class="project-strip-head">
       <div class="project-strip-heading"><span class="eyebrow">${english ? "ACTIVE PROJECTS" : "پروژه‌های فعال"}</span><b>${english ? "Projects" : "پروژه‌ها"}</b></div>
-      <div class="project-strip-current"><span class="strip-icon">${icons.project}</span><span><b>${project.name}</b><small>${faDigits(project.panels.length)} ${english ? "panels" : "پنل"} · ${project.status}</small></span></div>
+      <div class="project-strip-current"><span class="strip-icon">${icons.project}</span><span><b>${project.name}</b><small>${faDigits(project.panels.length)} ${english ? "panels" : "پنل"}</small></span></div>
       <div class="project-strip-actions"><button type="button" class="strip-back" data-back-projects>${icons.chevronRight}${english ? "All projects" : "همه پروژه‌ها"}</button><button type="button" class="icon-button small-icon project-strip-toggle" data-project-menu-toggle aria-expanded="${state.projectMenuOpen}" aria-label="${state.projectMenuOpen ? (english ? "Minimize projects" : "مینیمایز کردن پروژه‌ها") : (english ? "Expand projects" : "باز کردن پروژه‌ها")}">${state.projectMenuOpen ? icons.chevronUp : icons.chevronDown}</button></div>
     </div>
-    <div class="project-strip">${projects.map((item) => `<button type="button" class="project-strip-item${item.id === project.id ? " active" : ""}" data-project-id="${item.id}"><span class="strip-icon">${icons.project}</span><span><b>${item.name}</b><small>${faDigits(item.panels.length)} ${english ? "panels" : "پنل"} · ${item.status}</small></span>${item.id === project.id ? `<i class="strip-check">${icons.check}</i>` : ""}</button>`).join("")}</div>
+    <div class="project-strip">${projects.map((item) => `<button type="button" class="project-strip-item${item.id === project.id ? " active" : ""}" data-project-id="${item.id}"><span class="strip-icon">${icons.project}</span><span><b>${item.name}</b><small>${faDigits(item.panels.length)} ${english ? "panels" : "پنل"}</small></span>${item.id === project.id ? `<i class="strip-check">${icons.check}</i>` : ""}</button>`).join("")}</div>
   </div>`;
 }
 
+
 function renderPanelList(project, panel) {
   const english = state.language === "en";
-  const panelConnection = state.connectedPanelId === panel.id;
-  return `<section class="project-strip-wrap panel-popup-wrap panel-selector-wrap${state.panelMenuOpen ? " open" : " collapsed"}" aria-label="${english ? "Project panels" : "پنل‌های پروژه"}">
-    <div class="project-strip-head panel-popup-head">
-      <div class="project-strip-heading panel-popup-title"><span class="panel-popup-icon">${icons.panel}</span><div><span class="eyebrow">${english ? "PROJECT PANELS" : "پنل‌های پروژه"}</span><h3>${english ? "Panels in this project" : "پنل‌های این پروژه"}</h3><p>${faDigits(project.panels.length)} ${english ? "registered panels" : "پنل ثبت‌شده"}</p></div></div>
-      <div class="project-strip-current panel-current-selection"><span>${icons.panel}</span><div><small>${english ? "Selected panel" : "پنل انتخاب‌شده"}</small><b>${panel.name}</b><em>${panel.code}${panelConnection ? ` · ${english ? "Connected" : "متصل"}` : ""}</em></div></div>
-      <div class="project-strip-actions panel-popup-actions"><button type="button" class="strip-back panel-refresh-button" data-panel-refresh aria-label="${english ? "Refresh panels" : "به‌روزرسانی پنل‌ها"}">${icons.refresh}${english ? "Refresh" : "به‌روزرسانی"}</button><button type="button" class="icon-button small-icon project-strip-toggle panel-popup-toggle" data-panel-menu-toggle aria-expanded="${state.panelMenuOpen}" aria-label="${state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")}">${state.panelMenuOpen ? icons.chevronUp : icons.chevronDown}</button></div>
-    </div>
-    <div class="panel-popup-body"><div class="panel-popup-list">${project.panels.map((item) => { const itemConnected = state.connectedPanelId === item.id; return `<div class="panel-list-item${item.id === panel.id ? " active" : ""}" data-panel-row="${item.id}"><button type="button" class="panel-select" data-panel-id="${item.id}"><span class="panel-list-icon">${icons.panel}</span><span class="panel-list-copy"><b>${item.name}</b><small>${item.code}</small><em class="panel-connection ${itemConnected ? "connected" : "offline"}"><i></i>${itemConnected ? (english ? "Connected" : "متصل") : (english ? "Offline" : item.status)}</em></span>${item.alarms ? `<span class="panel-alarm">${faDigits(item.alarms)}</span>` : ""}${item.id === panel.id ? `<span class="selected-line"></span>` : ""}</button></div>`; }).join("")}</div><div class="add-panel-hint">${icons.wifi}<span><b>${english ? "Panel connection" : "اتصال پنل"}</b><small>${english ? "Manage it from Saved Settings before reading or uploading." : "اتصال را قبل از خواندن یا آپلود، از تنظیمات ذخیره‌شده مدیریت کنید."}</small></span></div></div>
-  </section>`;
+  const activePanel = panel || { id: "", name: english ? "No panel selected" : "پنلی انتخاب نشده", code: "—", status: "آفلاین", alarms: 0 };
+  return "<section class='project-strip-wrap panel-popup-wrap panel-selector-wrap" + (state.panelMenuOpen ? " open" : " collapsed") + "' aria-label='" + (english ? "Project panels" : "پنل‌های پروژه") + "'>"
+     + "<div class='project-strip-head panel-popup-head'><div class='panel-popup-head-main'><div class='project-strip-heading panel-popup-title'><span class='panel-popup-icon'>" + icons.panel + "</span><div><span class='eyebrow'>" + (english ? "PROJECT PANELS" : "پنل‌های پروژه") + "</span><h3>" + (english ? "Panels in this project" : "پنل‌های این پروژه") + "</h3><p>" + faDigits(project.panels.length) + " " + (english ? "registered panels" : "پنل ثبت‌شده") + "</p></div></div><div class='project-strip-current panel-current-selection'><span>" + icons.panel + "</span><div><small>" + (english ? "Selected panel" : "پنل انتخاب‌شده") + "</small><b>" + escapeHtml(activePanel.name) + "</b><em>" + escapeHtml(activePanel.code) + "</em></div></div></div><div class='project-strip-actions panel-popup-actions'><button type='button' class='strip-back panel-refresh-button' data-panel-refresh aria-label='" + (english ? "Refresh panels" : "به‌روزرسانی پنل‌ها") + "'>" + icons.refresh + (english ? "Refresh" : "به‌روزرسانی") + "</button><button type='button' class='icon-button small-icon project-strip-toggle panel-popup-toggle' data-panel-menu-toggle aria-expanded='" + state.panelMenuOpen + "' aria-label='" + (state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")) + "'>" + (state.panelMenuOpen ? icons.chevronUp : icons.chevronDown) + "</button></div></div>"
+     + "<div class='panel-popup-body'><div class='panel-popup-list'>" + (project.panels.length ? project.panels.map((item) => "<div class='panel-list-item" + (item.id === activePanel.id ? " active" : "") + "'><button type='button' class='panel-select' data-panel-id='" + escapeHtml(item.id) + "'><span class='panel-list-icon'>" + icons.panel + "</span><span class='panel-list-copy'><b>" + escapeHtml(item.name) + "</b><small>" + escapeHtml(item.code) + "</small></span>" + (item.alarms ? "<span class='panel-alarm'>" + faDigits(item.alarms) + "</span>" : "") + (item.id === activePanel.id ? "<span class='selected-line'></span>" : "") + "</button></div>").join("") : "<div class='panel-empty-state'>" + (english ? "No panels have been added yet." : "هنوز پنلی اضافه نشده است.") + "</div>") + "</div><button type='button' class='add-panel-hint panel-add-from-hint' data-panel-create><span class='panel-add-hint-icon'>" + icons.plus + "</span><span><b>" + (english ? "Add a new panel" : "افزودن پنل جدید") + "</b><small>" + (english ? "Create a panel for this project. Connection and upload are managed separately." : "یک پنل جدید برای این پروژه تعریف کنید؛ اتصال و آپلود جداگانه مدیریت می‌شود.") + "</small></span></button></div></section>";
 }
 
 function isMobileWorkspace() {
@@ -746,7 +1034,7 @@ function renderSystemSetting() {
 
 function renderPanelCaptionSetting() {
   const english = state.language === "en";
-  const panel = findPanel();
+  const panel = findPanel() || { name: english ? "No panel selected" : "پنلی انتخاب نشده", code: "NO-PANEL" };
   const displayCaption = `FIRE PANEL ${panel.code.split("-").pop()}`;
   return `<article class="sub-card"><div class="sub-card-head"><div><h3>${english ? "Panel Caption" : "عنوان پنل"}</h3><p>${english ? "Set the names used to identify this fire alarm panel." : "نام‌های مورد استفاده برای شناسایی پنل اعلام حریق را تعیین کنید."}</p></div><span class="status-chip green">${english ? "Ready" : "آماده"}</span></div><div class="compact-form panel-caption-form"><div class="field-block full"><label>${english ? "Panel name" : "نام پنل"}</label><div class="input-with-icon"><input type="text" value="${panel.name}" data-persist-setting aria-label="${english ? "Panel name" : "نام پنل"}"></div><small class="field-hint">${english ? "This name remains unchanged when the interface language changes." : "این نام با تغییر زبان رابط کاربری بدون تغییر باقی می‌ماند."}</small></div><div class="field-block full"><label>${english ? "Display Caption" : "عنوان نمایشی پنل"}</label><div class="input-with-icon"><input class="english-input" type="text" value="${displayCaption}" maxlength="24" pattern="[A-Za-z0-9 _-]+" inputmode="text" data-persist-setting data-english-only aria-label="${english ? "Display Caption" : "عنوان نمایشی پنل"}"></div><small class="field-hint display-caption-hint">${english ? "This value is shown on the panel display and must use English characters only (A-Z, 0-9, spaces, - or _)." : "این مقدار روی دیسپلی پنل نمایش داده می‌شود و حتماً باید فقط از کاراکترهای انگلیسی استفاده شود (حروف A-Z، اعداد، فاصله، - یا _)."}</small></div></div>${renderSettingActions()}</article>`;
 }
@@ -762,7 +1050,7 @@ function renderPasswordChangeSetting() {
   const userLabel = (user, index) => user.role === "admin"
     ? (english ? "Administrator" : "کاربر ادمین")
     : `${english ? "User" : "کاربر"} ${index}`;
-  return `<article class="sub-card password-users-card"><div class="sub-card-head"><div><h3>${english ? "User passwords" : "مدیریت کاربران و پسوردها"}</h3><p>${english ? "Set a username and password for the administrator and five panel users." : "برای ادمین و پنج کاربر پنل، نام کاربری و پسورد تعیین کنید."}</p></div><span class="status-chip amber">${english ? `${users.length} users` : `${faDigits(users.length)} کاربر`}</span></div><div class="password-users-grid">${users.map((user, index) => `<section class="password-user-card${user.role === "admin" ? " admin" : ""}"><div class="password-user-head"><span class="password-user-icon">${icons.user}</span><div><b>${userLabel(user, index)}</b><small>${user.role === "admin" ? (english ? "Full access" : "دسترسی کامل") : (english ? "Panel user" : "کاربر پنل")}</small></div></div><div class="password-user-fields"><div class="field-block"><label>${english ? "Username" : "نام کاربری"}</label><input class="password-input" type="text" value="${escapeHtml(user.name)}" autocomplete="off" data-user-field="name" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} username` : `نام کاربری ${userLabel(user, index)}`}" /></div><div class="field-block"><label>${english ? "Password" : "پسورد"}</label><input class="password-input" type="password" value="${escapeHtml(user.password)}" placeholder="••••••••" autocomplete="new-password" data-user-field="password" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} password` : `پسورد ${userLabel(user, index)}`}" /></div></div></section>`).join("")}</div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card password-users-card"><div class="sub-card-head"><div><h3>${english ? "User passwords" : "مدیریت کاربران و پسوردها"}</h3><p>${english ? "Set a username and password for the administrator and five panel users." : "برای ادمین و پنج کاربر پنل، نام کاربری و پسورد تعیین کنید."}</p></div><span class="status-chip amber">${english ? `${users.length} users` : `${faDigits(users.length)} کاربر`}</span></div><div class="password-users-grid">${users.map((user, index) => `<section class="password-user-card${user.role === "admin" ? " admin" : ""}"><div class="password-user-head"><span class="password-user-icon">${icons.user}</span><div><b>${userLabel(user, index)}</b><small>${user.role === "admin" ? (english ? "Full access" : "دسترسی کامل") : (english ? "Panel user" : "کاربر پنل")}</small></div></div><div class="password-user-fields"><div class="field-block"><label>${english ? "Username" : "نام کاربری"}</label><input class="password-input" type="text" value="${escapeHtml(user.name)}" autocomplete="off" data-user-field="name" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} username` : `نام کاربری ${userLabel(user, index)}`}" /></div><div class="field-block"><label>${english ? "New password" : "پسورد جدید"}</label><input class="password-input" type="password" value="${escapeHtml(user.password)}" placeholder="••••••••" autocomplete="new-password" data-user-field="password" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} new password` : `پسورد جدید ${userLabel(user, index)}`}" /></div><div class="field-block"><label>${english ? "Confirm new password" : "تکرار پسورد جدید"}</label><input class="password-input" type="password" value="${escapeHtml(state.passwordConfirmations?.[user.id] || "")}" placeholder="••••••••" autocomplete="new-password" data-user-field="password-confirmation" data-user-id="${user.id}" aria-label="${english ? `${userLabel(user, index)} confirm new password` : `تکرار پسورد جدید ${userLabel(user, index)}`}" /></div></div></section>`).join("")}</div>${renderSettingActions()}</article>`;
 }
 
 function ensureUserAccess(user) {
@@ -835,6 +1123,21 @@ function renderSettingActions() {
   return `<div class="inline-actions"><button type="button" class="btn-primary" data-save-setting>${icons.check}ذخیره تنظیمات</button></div>`;
 }
 
+function validatePanelUserPasswords() {
+  const users = state.panelUserAccounts || [];
+  for (const user of users) {
+    if (!state.passwordEditing?.[user.id]) continue;
+    const password = String(user.password || "");
+    const confirmation = String(state.passwordConfirmations?.[user.id] || "");
+    if (password !== confirmation) {
+      showToast(state.language === "en" ? `Passwords do not match for ${user.name || "this user"}.` : `پسورد جدید و تکرار آن برای «${user.name || "این کاربر"}» یکسان نیست.`, "info");
+      document.querySelector(`[data-user-field="password-confirmation"][data-user-id="${user.id}"]`)?.focus();
+      return false;
+    }
+  }
+  return true;
+}
+
 function ensureSettingActions(markup) {
   if (markup.includes("data-save-setting")) return markup;
   return markup.replace("</article>", `${renderSettingActions()}</article>`);
@@ -842,7 +1145,7 @@ function ensureSettingActions(markup) {
 
 function renderSavedSettingsSetting() {
   const english = state.language === "en";
-  const panel = findPanel();
+  const panel = findPanel() || { id: "", name: english ? "No panel selected" : "پنلی انتخاب نشده", code: "—" };
   const files = (state.savedSettingFiles || []).filter((file) => file.panelId === panel?.id);
   const formatFileDate = (value) => {
     try { return new Intl.DateTimeFormat(english ? "en-US" : "fa-IR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
@@ -912,42 +1215,58 @@ function renderLoopCardSetting() {
   const typeLabel = (key) => { const type = loopDeviceTypes.find((item) => item.key === key) || loopDeviceTypes[0]; return english ? type.en : type.fa; };
   const categoryLabel = (key) => ({ relay: english ? "Relay" : "رله", control: english ? "Control" : "کنترل", other: english ? "Other" : "سایر", "cl-b-s-b": "CL-B-S-B", "cl-b-s-c": "CL-B-S-C" }[key] || key);
   const selectOptions = (options, selected) => options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  const field = (device, name, content) => name === "style" ? "" : name === "location" ? `<input type="text" value="${content}" data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>` : `<select data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>${content}</select>`;
+  const field = (device, name, content) => {
+    if (name === "style") return "";
+    if (name === "location") return `<input type="text" value="${content}" data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>`;
+    const control = `<select data-loop-device-field="${name}" data-loop-device-id="${device.id}" aria-label="${name}"${disabledAttr}>${content}</select>`;
+    return name === "type" ? `<span class="loop-device-type-field">${deviceIconMarkup(device.type)}${control}</span>` : control;
+  };
   const renderDeviceRow = (device) => `<div class="loop-device-row${state.selectedLoopDeviceId === device.id ? " selected" : ""}" data-loop-address="${device.number}"><label class="loop-row-selector"><input type="radio" name="loop-device-select" data-loop-device-select="${device.id}" ${state.selectedLoopDeviceId === device.id ? "checked" : ""}${disabledAttr}><span></span></label><div class="loop-number">${faDigits(device.number)}</div>${field(device, "enabled", selectOptions([["enabled", english ? "Enable" : "فعال"], ["disabled", english ? "Disable" : "غیرفعال"]], device.enabled ? "enabled" : "disabled"))}${field(device, "style", selectOptions([["class-b", "Class B"], ["class-a", "Class A"]], device.style))}${field(device, "type", loopDeviceTypes.map((type) => [type.key, english ? type.en : type.fa]).map(([value, label]) => `<option value="${value}" ${device.type === value ? "selected" : ""}>${label}</option>`).join(""))}${field(device, "category", selectOptions(loopCategories.map((item) => [item, categoryLabel(item)]), device.category))}${field(device, "inputType", selectOptions([["alarm", "Alarm"], ["supervisory", "Supervisory"]], device.inputType || "alarm"))}${field(device, "deactivation", selectOptions([["silence", english ? "Silence" : "سایلنس"], ["reset", english ? "Reset" : "ریست"], ["auto-reset", english ? "Auto Reset" : "اتو ریست"]], device.deactivation || "silence"))}${field(device, "sensitivity", selectOptions([["low", english ? "Low" : "کم"], ["medium", english ? "Medium" : "متوسط"], ["high", english ? "High" : "زیاد"]], device.sensitivity))}${field(device, "nightMode", selectOptions([["day", english ? "Day" : "روز"], ["night", english ? "Night" : "شب"]], device.nightMode))}${field(device, "location", device.location || "")}</div>`;
   const renderEmptyRow = (address) => `<div class="loop-device-row loop-empty-row" data-loop-address="${address}"><span></span><button type="button" class="loop-empty-address" data-loop-empty-address="${address}"${disabledAttr}>${faDigits(address)}</button><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>${english ? "Empty slot" : "خانه خالی"}</span></div>`;
-  const renderFilteredRow = (device) => `<div class="loop-device-row loop-filtered-row" data-loop-address="${device.number}"><span></span><span class="loop-number">${faDigits(device.number)}</span><span class="loop-filtered-label">${english ? "Filtered" : "فیلتر شده"}</span><span>—</span><span>${typeLabel(device.type)}</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span></div>`;
-  const filteredDevices = state.loopDeviceFilter === "all"
-    ? devices
-    : devices
-      .filter((device) => device.type === state.loopDeviceFilter)
-      .sort((first, second) => Number(first.number) - Number(second.number));
-  const rows = state.loopDeviceFilter === "all"
-    ? Array.from({ length: 254 }, (_, index) => {
+  const renderFilteredRow = (device) => `<div class="loop-device-row loop-filtered-row" data-loop-address="${device.number}"><span></span><span class="loop-number">${faDigits(device.number)}</span><span class="loop-filtered-label">${english ? "Filtered" : "فیلتر شده"}</span><span>—</span><span class="loop-filtered-type">${deviceIconMarkup(device.type)}${typeLabel(device.type)}</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span></div>`;
+  const filteredDevices = devices
+    .filter(loopDeviceMatchesActiveFilters)
+    .sort((first, second) => Number(first.number) - Number(second.number));
+  const rows = loopDeviceFiltersUseCompactList()
+    ? filteredDevices.length
+      ? filteredDevices.map(renderDeviceRow).join("")
+      : `<div class="loop-empty-state">${english ? "No devices match the selected filter." : "دیوایسی مطابق فیلتر انتخاب‌شده پیدا نشد."}</div>`
+    : Array.from({ length: 254 }, (_, index) => {
       const address = index + 1;
       const device = deviceByAddress.get(address);
       return device ? renderDeviceRow(device) : renderEmptyRow(address);
-    }).join("")
-    : filteredDevices.length
-      ? filteredDevices.map(renderDeviceRow).join("")
-      : `<div class="loop-empty-state">${english ? "No devices match the selected filter." : "دیوایسی مطابق فیلتر انتخاب‌شده پیدا نشد."}</div>`;
-  const countCards = loopDeviceTypes.map((type) => `<div class="loop-type-count"><span>${typeLabel(type.key)}</span><b>${faDigits(devices.filter((device) => device.type === type.key).length)}</b></div>`).join("");
+    }).join("");
+  const countCards = loopDeviceTypes.map((type) => `<div class="loop-type-count"><span>${deviceIconMarkup(type.key)}${typeLabel(type.key)}</span><b>${faDigits(devices.filter((device) => device.type === type.key).length)}</b></div>`).join("");
   const filterOptions = [["all", english ? "All devices" : "همه دیوایس‌ها"], ...loopDeviceTypes.map((type) => [type.key, typeLabel(type.key)])];
   const cardChoices = state.loopCards.map((loopCard) => `<button type="button" class="loop-card-choice${loopCard.id === card?.id ? " selected" : ""}" data-loop-card-select="${loopCard.id}"${disabledAttr}><span><b>${loopCard.label}</b><small>${faDigits(loopCard.devices.length)} ${english ? "devices" : "دیوایس"}</small></span></button>`).join("");
-  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage its 1–254 device addresses." : "یک کارت لوپ را انتخاب کنید و آدرس‌های ۱ تا ۲۵۴ دیوایس آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-type-counts">${countCards}<div class="loop-type-count total"><span>${english ? "Total" : "مجموع"}</span><b>${faDigits(devices.length)}</b></div></div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-add-panel"><div class="loop-add-field"><label for="loop-address-input">${english ? "Device Address" : "آدرس دیوایس"}</label><input id="loop-address-input" type="number" min="1" max="254" step="1" inputmode="numeric" placeholder="${english ? "1–254 or automatic" : "۱ تا ۲۵۴ یا انتخاب خودکار"}" data-loop-address-input${disabledAttr}></div><div class="loop-add-field"><label>${english ? "Device Type" : "نوع دیوایس"}</label><select class="loop-add-select" data-loop-new-type${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${typeLabel(type.key)}</option>`).join("")}</select></div><button type="button" class="btn-primary compact loop-add-button" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><small class="loop-add-hint">${english ? "Click an empty address below to fill it automatically." : "برای تکمیل خودکار، روی یکی از آدرس‌های خالی زیر کلیک کنید."}</small><small class="loop-add-error">${state.loopAddError || ""}</small></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Selected address" : "آدرس انتخاب‌شده"}: <b dir="ltr" data-loop-selected-address>${selectedAddress}</b></span><span>${english ? "Empty addresses" : "آدرس‌های خالی"}: <b>${faDigits(254 - devices.length)}</b></span><span>${english ? "Address range" : "محدوده آدرس"}: <b dir="ltr">1–254</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Address" : "آدرس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>${english ? "Input Type" : "نوع ورودی"}</span><span>${english ? "Deactivation" : "عملکرد غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "موقعیت"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button></div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card loop-card-setting"><div class="sub-card-head"><div><h3>${english ? "Loop Card" : "کارت لوپ"}</h3><p>${english ? "Select a loop card and manage its 1–254 device addresses." : "یک کارت لوپ را انتخاب کنید و آدرس‌های ۱ تا ۲۵۴ دیوایس آن را مدیریت کنید."}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "اتصال برقرار نیست") : (english ? "Connected" : "متصل")}</span></div><div class="loop-card-picker">${cardChoices}</div><div class="loop-type-counts">${countCards}</div><div class="loop-toolbar"><div class="loop-toolbar-actions"><button type="button" class="btn-secondary compact" data-loop-read${disabledAttr}>${icons.refresh}${english ? "Read Device" : "شناسایی دیوایس"}</button></div><div class="loop-filter-controls"><label>${english ? "Filter Device" : "فیلتر دیوایس"}<select data-loop-filter-select${disabledAttr}>${filterOptions.map(([value, label]) => `<option value="${value}" ${state.loopDeviceFilter === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label class="loop-filter-check"><input type="checkbox" data-loop-filter-toggle="present" ${state.loopOnlyPresent ? "checked" : ""}${disabledAttr}><span>${english ? "Installed devices" : "دیوایس‌های موجود"}</span></label><label class="loop-filter-check"><input type="checkbox" data-loop-filter-toggle="active" ${state.loopOnlyActive ? "checked" : ""}${disabledAttr}><span>${english ? "Active devices" : "دیوایس‌های فعال"}</span></label><button type="button" class="btn-ghost compact" data-loop-filter-all${disabledAttr}>${english ? "Show All" : "نمایش همه"}</button></div></div><div class="loop-add-panel"><div class="loop-add-field"><label for="loop-address-input">${english ? "Device Address" : "آدرس دیوایس"}</label><input id="loop-address-input" type="number" min="1" max="254" step="1" inputmode="numeric" placeholder="${english ? "1–254 or automatic" : "۱ تا ۲۵۴ یا انتخاب خودکار"}" data-loop-address-input${disabledAttr}></div><div class="loop-add-field"><label>${english ? "Device Type" : "نوع دیوایس"}</label><select class="loop-add-select" data-loop-new-type${disabledAttr}>${loopDeviceTypes.map((type) => `<option value="${type.key}">${typeLabel(type.key)}</option>`).join("")}</select></div><button type="button" class="btn-primary compact loop-add-button" data-loop-add${disabledAttr}>+ ${english ? "Add Device" : "افزودن دیوایس"}</button><small class="loop-add-hint">${english ? "Click an empty address below to fill it automatically." : "برای تکمیل خودکار، روی یکی از آدرس‌های خالی زیر کلیک کنید."}</small><small class="loop-add-error">${state.loopAddError || ""}</small></div><div class="loop-summary"><span>${english ? "Selected card" : "کارت انتخاب‌شده"}: <b>${card?.label || "LoopCard1"}</b></span><span>${english ? "Selected address" : "آدرس انتخاب‌شده"}: <b dir="ltr" data-loop-selected-address>${selectedAddress}</b></span><span>${english ? "Empty addresses" : "آدرس‌های خالی"}: <b>${faDigits(254 - devices.length)}</b></span><span>${english ? "Address range" : "محدوده آدرس"}: <b dir="ltr">1–254</b></span></div><div class="loop-device-scroller"><div class="loop-device-table"><div class="loop-device-head"><span></span><span>${english ? "Address" : "آدرس"}</span><span>${english ? "Status" : "وضعیت"}</span><span>${english ? "Style" : "نوع سیم‌کشی"}</span><span>${english ? "Device" : "دیوایس"}</span><span>${english ? "Category" : "دسته‌بندی"}</span><span>${english ? "Input Type" : "نوع ورودی"}</span><span>${english ? "Deactivation" : "عملکرد غیرفعال‌سازی"}</span><span>${english ? "Sensitivity" : "حساسیت"}</span><span>${english ? "Night Mode" : "حالت کارکرد"}</span><span>${english ? "Location" : "موقعیت"}</span></div>${rows}</div></div><div class="loop-device-actions"><button type="button" class="btn-danger compact" data-loop-delete${disabledAttr}>${english ? "Delete" : "حذف"}</button><button type="button" class="btn-danger compact" data-loop-delete-all${disabledAttr}>${english ? "Delete All" : "حذف همه"}</button><span class="loop-action-spacer"></span><button type="button" class="btn-secondary compact" data-loop-print${disabledAttr}>${icons.report}${english ? "Print" : "چاپ"}</button></div>${renderSettingActions()}</article>`;
 }
 
 function selectedLoopCard() {
   return state.loopCards.find((card) => card.id === state.selectedLoopCardId) || state.loopCards[0];
 }
 
-function redrawLoopCardSetting() {
+function loopDeviceMatchesActiveFilters(device) {
+  if (!device) return false;
+  if (state.loopDeviceFilter !== "all" && device.type !== state.loopDeviceFilter) return false;
+  if (state.loopOnlyActive && !device.enabled) return false;
+  return true;
+}
+
+function loopDeviceFiltersUseCompactList() {
+  return state.loopDeviceFilter !== "all" || state.loopOnlyPresent || state.loopOnlyActive;
+}
+
+function redrawLoopCardSetting({ previousAddressOverride } = {}) {
   const root = document.querySelector(".loop-card-setting");
   if (!root) return;
   const currentScroller = root.querySelector(".loop-device-scroller");
   const previousSelectedId = state.selectedLoopDeviceId;
   const previousCard = selectedLoopCard();
   const previousSelectedDevice = previousCard?.devices.find((device) => device.id === previousSelectedId);
-  const previousAddress = previousSelectedDevice ? Number(previousSelectedDevice.number) : null;
+  const previousAddress = previousAddressOverride !== undefined
+    ? previousAddressOverride
+    : previousSelectedDevice ? Number(previousSelectedDevice.number) : null;
   const previousScrollTop = currentScroller ? currentScroller.scrollTop : null;
   root.outerHTML = renderLoopCardSetting();
   const nextCard = selectedLoopCard();
@@ -1035,7 +1354,15 @@ function bindLoopCardEventsLegacy() {
     }
   };
   root.querySelectorAll("[data-loop-device-field]").forEach((control) => {
-    control.addEventListener("change", () => { if (connected) updateDeviceField(control); });
+    control.addEventListener("change", () => {
+      if (!connected) return;
+      updateDeviceField(control);
+      const fieldName = control.dataset.loopDeviceField;
+      if (fieldName !== "enabled" && fieldName !== "type") return;
+      const updatedDevice = card?.devices.find((device) => device.id === control.dataset.loopDeviceId);
+      if (updatedDevice && !loopDeviceMatchesActiveFilters(updatedDevice)) state.selectedLoopDeviceId = null;
+      if (loopDeviceFiltersUseCompactList()) redrawLoopCardSetting();
+    });
     if (control.tagName === "INPUT") control.addEventListener("input", () => { if (connected) updateDeviceField(control); });
   });
   root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => {
@@ -1052,6 +1379,8 @@ function bindLoopCardEventsLegacy() {
     if (!card) return;
     readLoopCardDevices(card);
     state.loopDeviceFilter = "all";
+    state.loopOnlyPresent = false;
+    state.loopOnlyActive = false;
     state.selectedLoopDeviceId = card.devices[0]?.id || null;
     redrawLoopCardSetting();
     showToast(state.language === "en" ? "Devices were read from the loop card." : "دیوایس‌های کارت لوپ شناسایی شدند.");
@@ -1139,6 +1468,8 @@ function showLoopAddressConflictModal(card, existingDevice, address, typeKey) {
     state.selectedLoopCardId = targetCard.id;
     state.selectedLoopDeviceId = target.id;
     state.loopDeviceFilter = "all";
+    state.loopOnlyPresent = false;
+    state.loopOnlyActive = false;
     state.loopAddError = "";
     closeLoopAddressConflict();
     redrawLoopCardSetting();
@@ -1156,6 +1487,8 @@ function bindLoopCardEvents(options = {}) {
     state.selectedLoopCardId = button.dataset.loopCardSelect;
     state.selectedLoopDeviceId = null;
     state.loopDeviceFilter = "all";
+    state.loopOnlyPresent = false;
+    state.loopOnlyActive = false;
     state.loopAddError = "";
     redrawLoopCardSetting();
   }));
@@ -1195,7 +1528,15 @@ function bindLoopCardEvents(options = {}) {
     }
   };
   root.querySelectorAll("[data-loop-device-field]").forEach((control) => {
-    control.addEventListener("change", () => { if (connected) updateDeviceField(control); });
+    control.addEventListener("change", () => {
+      if (!connected) return;
+      updateDeviceField(control);
+      const fieldName = control.dataset.loopDeviceField;
+      if (fieldName !== "enabled" && fieldName !== "type") return;
+      const updatedDevice = card?.devices.find((device) => device.id === control.dataset.loopDeviceId);
+      if (updatedDevice && !loopDeviceMatchesActiveFilters(updatedDevice)) state.selectedLoopDeviceId = null;
+      if (loopDeviceFiltersUseCompactList()) redrawLoopCardSetting();
+    });
     if (control.tagName === "INPUT") control.addEventListener("input", () => { if (connected) updateDeviceField(control); });
   });
   root.querySelector("[data-loop-address-input]")?.addEventListener("input", () => { if (state.loopAddError) setLoopAddError(""); });
@@ -1207,18 +1548,36 @@ function bindLoopCardEvents(options = {}) {
     setLoopAddError("");
     input.focus({ preventScroll: true });
   }));
+  const clearSelectedDeviceIfHidden = () => {
+    const selected = card?.devices.find((device) => device.id === state.selectedLoopDeviceId);
+    if (selected && !loopDeviceMatchesActiveFilters(selected)) state.selectedLoopDeviceId = null;
+  };
   root.querySelector("[data-loop-filter-select]")?.addEventListener("change", (event) => {
     if (!connected) return;
     state.loopDeviceFilter = event.target.value;
-    const selected = card?.devices.find((device) => device.id === state.selectedLoopDeviceId);
-    if (state.loopDeviceFilter !== "all" && selected?.type !== state.loopDeviceFilter) state.selectedLoopDeviceId = null;
+    clearSelectedDeviceIfHidden();
     redrawLoopCardSetting();
   });
-  root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => { if (!connected) return; state.loopDeviceFilter = "all"; redrawLoopCardSetting(); });
+  root.querySelectorAll("[data-loop-filter-toggle]").forEach((input) => input.addEventListener("change", () => {
+    if (!connected) return;
+    if (input.dataset.loopFilterToggle === "present") state.loopOnlyPresent = input.checked;
+    if (input.dataset.loopFilterToggle === "active") state.loopOnlyActive = input.checked;
+    clearSelectedDeviceIfHidden();
+    redrawLoopCardSetting();
+  }));
+  root.querySelector("[data-loop-filter-all]")?.addEventListener("click", () => {
+    if (!connected) return;
+    state.loopDeviceFilter = "all";
+    state.loopOnlyPresent = false;
+    state.loopOnlyActive = false;
+    redrawLoopCardSetting();
+  });
   root.querySelector("[data-loop-read]")?.addEventListener("click", () => {
     if (!requireCurrentPanelConnection() || !card) return;
     readLoopCardDevices(card);
     state.loopDeviceFilter = "all";
+    state.loopOnlyPresent = false;
+    state.loopOnlyActive = false;
     state.selectedLoopDeviceId = card.devices[0]?.id || null;
     state.loopAddError = "";
     redrawLoopCardSetting();
@@ -1249,12 +1608,14 @@ function bindLoopCardEvents(options = {}) {
       showLoopAddressConflictModal(card, existingDevice, address, typeKey);
       return;
     }
+    const previousSelectedDevice = card.devices.find((item) => item.id === state.selectedLoopDeviceId);
+    const previousAddress = previousSelectedDevice ? Number(previousSelectedDevice.number) : null;
     const device = makeLoopDevice(card.id, address, typeKey, { location: "آدرس جدید دیوایس" });
     card.devices.push(device);
     state.loopDeviceFilter = "all";
     state.selectedLoopDeviceId = device.id;
     state.loopAddError = "";
-    redrawLoopCardSetting();
+    redrawLoopCardSetting({ previousAddressOverride: previousAddress });
     showToast(state.language === "en" ? "New device added." : "دیوایس جدید اضافه شد.");
   });
   root.querySelector("[data-loop-delete]")?.addEventListener("click", () => {
@@ -1313,7 +1674,7 @@ function renderGroupListItem(ref, english, selected = false) {
   const { card, device } = findGroupDevice(ref);
   if (!device) return "";
   const type = loopDeviceTypes.find((item) => item.key === device.type) || loopDeviceTypes[0];
-  return `<button type="button" class="group-device-entry${selected ? " selected" : ""}" data-group-selected-key="${groupDeviceKey(ref.loopId, ref.deviceId)}"${panelRequiredAttr(!state.connectedPanelId)}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${english ? type.en : type.fa}</b><small>${device.location || "—"}</small></span>${selected ? icons.check : icons.chevronLeft}</button>`;
+  return `<button type="button" class="group-device-entry${selected ? " selected" : ""}" data-group-selected-key="${groupDeviceKey(ref.loopId, ref.deviceId)}"${panelRequiredAttr(!state.connectedPanelId)}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${english ? type.en : type.fa}</b><small>${device.location || "—"}</small></span>${selected ? icons.check : icons.chevronLeft}</button>`;
 }
 
 function renderGroupSettingZone() {
@@ -1332,7 +1693,7 @@ function renderGroupSettingZone() {
     const selectedLoop = state.loopCards.find((card) => card.id === state.zoneLoopCardId) || state.loopCards[0];
     const groupedKeys = new Set(group.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
     const inputDevices = (selectedLoop?.devices || []).filter((device) => !groupedKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
-    const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
+    const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
     const groupedList = group.length ? group.map((ref) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Click a device to add it to this group." : "برای افزودن دیوایس به گروه روی آن کلیک کنید."}</div>`;
     return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("zone")}<div class="group-form-grid">${selectField(english ? "Group Number" : "شماره گروه", "data-zone-group-number", groupNumberOptions(state.zoneGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-zone-loop", groupLoopOptions(state.zoneLoopCardId))}<label class="group-switch-field"><span><b>${english ? "Pre Alarm" : "پیش هشدار"}</b><small>${english ? "Enable pre-alarm for this zone group." : "پیش‌هشدار این گروه زون را فعال کنید."}</small></span><span class="group-switch-wrap"><em>${state.zonePreAlarm[state.zoneGroupNumber] ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-zone-prealarm ${state.zonePreAlarm[state.zoneGroupNumber] ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-device-columns zone-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click a device to add it to the selected group." : "برای افزودن به گروه، دیوایس را انتخاب کنید."}</small></div><b>${faDigits(inputDevices.length)}</b></div><div class="group-device-list">${inputList}</div></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Zone Grouped Devices List" : "لیست دیوایس‌های گروه‌بندی‌شده"}</h4><small>${english ? `Group ${state.zoneGroupNumber}` : `گروه ${faDigits(state.zoneGroupNumber)}`}</small></div><b>${faDigits(group.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div>${actions("zone")}${renderSettingActions()}</article>`;
   }
@@ -1345,7 +1706,7 @@ function renderGroupSettingZone() {
   const usedOutputs = new Set(outputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
   const availableInputs = (selectedLoop?.devices || []).filter((device) => !isOutputGroupDevice(device) && !usedInputs.has(groupDeviceKey(selectedLoop.id, device.id)));
   const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !usedOutputs.has(groupDeviceKey(selectedLoop.id, device.id)));
-  const availableList = (items, kind) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${kind}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available." : "دیوایسی برای انتخاب وجود ندارد."}</div>`;
+  const availableList = (items, kind) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${kind}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available." : "دیوایسی برای انتخاب وجود ندارد."}</div>`;
   const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
   const groupedList = grouped.length ? grouped.map(({ ref }) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists." : "دیوایس‌ها را از لیست‌های ورودی و خروجی اضافه کنید."}</div>`;
   const activeMax = inputRefs.length;
@@ -1354,7 +1715,7 @@ function renderGroupSettingZone() {
 }
 
 function renderGroupSettingLegacy() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گروه‌بندی ورودی و خروجی</h3><p>دیوایس‌ها را برای اجرای سناریوهای مشترک گروه‌بندی کنید.</p></div><button type="button" class="btn-primary compact">+ گروه جدید</button></div><div class="group-list"><div><span class="group-color teal">۱</span><div><b>گروه حریق طبقات</b><small>۱۲ دیوایس · خروجی آژیر · تأخیر ۰ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color amber">۲</span><div><b>گروه ورودی‌های اضطراری</b><small>۴ دیوایس · خروجی رله ۲ · تأخیر ۵ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color sky">۳</span><div><b>گروه تجهیزات موتورخانه</b><small>۸ دیوایس · وضعیت نظارتی</small></div><em>پیش‌نویس</em>${icons.chevronLeft}</div></div></article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گروه‌بندی ورودی و خروجی</h3><p>دیوایس‌ها را برای اجرای سناریوهای مشترک گروه‌بندی کنید.</p></div><button type="button" class="btn-primary compact" data-group-new>+ گروه جدید</button></div><div class="group-list"><div><span class="group-color teal">۱</span><div><b>گروه حریق طبقات</b><small>۱۲ دیوایس · خروجی آژیر · تأخیر ۰ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color amber">۲</span><div><b>گروه ورودی‌های اضطراری</b><small>۴ دیوایس · خروجی رله ۲ · تأخیر ۵ ثانیه</small></div><em>فعال</em>${icons.chevronLeft}</div><div><span class="group-color sky">۳</span><div><b>گروه تجهیزات موتورخانه</b><small>۸ دیوایس · وضعیت نظارتی</small></div><em>پیش‌نویس</em>${icons.chevronLeft}</div></div></article>`;
 }
 
 function renderInputOutputGroupSettingLegacy() {
@@ -1372,7 +1733,7 @@ function renderInputOutputGroupSettingLegacy() {
   const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !outputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
   const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
   const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab" data-group-tab="zone" role="tab">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab active" data-group-tab="io" role="tab" aria-selected="true">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
-  const optionList = (items) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این گروه قابل انتخاب نیست."}</div>`;
+  const optionList = (items) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این گروه قابل انتخاب نیست."}</div>`;
   const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the input and output lists." : "دیوایس‌ها را از دو لیست ورودی و خروجی اضافه کنید."}</div>`;
   const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
   const selectField = (label, attr, options) => `<label class="group-field"><span>${label}</span><select ${attr}${disabledAttr}>${options}</select></label>`;
@@ -1414,7 +1775,7 @@ function renderInputOutputGroupSetting() {
       return `<button type="button" class="saved-io-relation${key === `${state.ioInputGroupNumber}-${state.ioOutputGroupNumber}` ? " active" : ""}${saved.status ? "" : " inactive"}" data-io-saved-relation="${key}"><span class="saved-io-relation-groups"><b>${english ? `Input ${inputGroup}` : `ورودی ${faDigits(inputGroup)}`}</b><i>&gt;</i><b>${english ? `Output ${outputGroup}` : `خروجی ${faDigits(outputGroup)}`}</b></span><span class="saved-io-relation-summary">${savedSummary}</span></button>`;
     }).join("")
     : `<div class="saved-io-relation-empty">${english ? "Saved input/output relations will remain visible here." : "ارتباط‌های ذخیره‌شده‌ی ورودی و خروجی در این بخش باقی می‌مانند."}</div>`;
-  const list = (devices) => devices.length ? devices.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این لوپ وجود ندارد."}</div>`;
+  const list = (devices) => devices.length ? devices.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این لوپ وجود ندارد."}</div>`;
   const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists above." : "دیوایس‌ها را از لیست‌های بالا اضافه کنید."}</div>`;
   const activeCount = Math.max(1, Math.min(16, Number(relation.activeCount) || 1));
   const activeCountOptions = Array.from({ length: 16 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${activeCount === value ? "selected" : ""}>${faDigits(value)}</option>`).join("");
@@ -1712,27 +2073,28 @@ function renderFeaturesSetting() {
 
 function renderEventsSetting() {
   const events = [["حریق", "دتکتور دود · طبقه ۲", "امروز، ۰۹:۴۲", "fire"], ["خطای ارتباط", "Loop Card 2", "امروز، ۰۸:۱۵", "fault"], ["بازگشت به حالت عادی", "زون ۰۳", "دیروز، ۱۸:۲۱", "normal"]];
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${findPanel().name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact">${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact">${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.bell : type === "fault" ? icons.wifi : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div>${renderSettingActions()}</article>`;
+  const panel = findPanel() || { name: state.language === "en" ? "No panel selected" : "پنلی انتخاب نشده" };
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${panel.name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact" data-events-read>${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact" data-events-export>${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.bell : type === "fault" ? icons.wifi : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div>${renderSettingActions()}</article>`;
 }
 
 function renderRemoteSetting() {
-  return `<div class="remote-layout"><article class="sub-card remote-status"><div class="remote-graphic">${icons.wifi}<span></span></div><span class="status-chip amber">اتصال برقرار نیست</span><h3>پنل از راه دور</h3><p>برای مشاهده و همگام‌سازی پنل‌های دور، ابتدا ارتباط اینترنتی یا شبکه را تنظیم کنید.</p><button type="button" class="btn-secondary">تنظیم ارتباط</button>${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>پنل‌های همکار</h3><p>پنل‌هایی که برای همگام‌سازی انتخاب شده‌اند</p></div></div><div class="remote-list"><div><span>${icons.panel}</span><b>FIRE-CTRL-05</b><em>در انتظار اتصال</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-06</b><em>آفلاین</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-07</b><em>غیرفعال</em></div></div></article></div>`;
+  return `<div class="remote-layout"><article class="sub-card remote-status"><div class="remote-graphic">${icons.wifi}<span></span></div><span class="status-chip amber">اتصال برقرار نیست</span><h3>پنل از راه دور</h3><p>برای مشاهده و همگام‌سازی پنل‌های دور، ابتدا ارتباط اینترنتی یا شبکه را تنظیم کنید.</p><button type="button" class="btn-secondary" data-remote-connect>تنظیم ارتباط</button>${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>پنل‌های همکار</h3><p>پنل‌هایی که برای همگام‌سازی انتخاب شده‌اند</p></div></div><div class="remote-list"><div><span>${icons.panel}</span><b>FIRE-CTRL-05</b><em>در انتظار اتصال</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-06</b><em>آفلاین</em></div><div><span>${icons.panel}</span><b>FIRE-CTRL-07</b><em>غیرفعال</em></div></div></article></div>`;
 }
 
 function renderReportSetting() {
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گزارش تنظیمات پنل</h3><p>گزارش خلاصه از وضعیت پیکربندی و دیوایس‌ها</p></div><button type="button" class="btn-primary compact">${icons.report}تولید گزارش</button></div><div class="report-preview"><div><span>${icons.panel}</span><b>وضعیت پنل</b><strong>آماده</strong></div><div><span>${icons.grid}</span><b>تعداد دیوایس‌ها</b><strong>۲۴</strong></div><div><span>${icons.bell}</span><b>رویدادهای باز</b><strong>۲</strong></div><div><span>${icons.check}</span><b>گروه‌های تنظیم‌شده</b><strong>۳</strong></div></div><div class="report-file">${icons.report}<span><b>گزارش پیکربندی FIRE-CTRL-04</b><small>آخرین تولید: امروز، ۱۰:۳۰ · PDF</small></span><button type="button" class="btn-secondary compact">دانلود</button></div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>گزارش تنظیمات پنل</h3><p>گزارش خلاصه از وضعیت پیکربندی و دیوایس‌ها</p></div><button type="button" class="btn-primary compact" data-report-generate>${icons.report}تولید گزارش</button></div><div class="report-preview"><div><span>${icons.panel}</span><b>وضعیت پنل</b><strong>آماده</strong></div><div><span>${icons.grid}</span><b>تعداد دیوایس‌ها</b><strong>۲۴</strong></div><div><span>${icons.bell}</span><b>رویدادهای باز</b><strong>۲</strong></div><div><span>${icons.check}</span><b>گروه‌های تنظیم‌شده</b><strong>۳</strong></div></div><div class="report-file">${icons.report}<span><b>گزارش پیکربندی FIRE-CTRL-04</b><small>آخرین تولید: امروز، ۱۰:۳۰ · PDF</small></span><button type="button" class="btn-secondary compact" data-report-download>دانلود</button></div>${renderSettingActions()}</article>`;
 }
 
 function renderGsmSetting() {
-  return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>تلفن‌کننده GSM</h3><p>وضعیت ارسال پیامک و تماس صوتی</p></div><span class="status-chip amber">آماده‌سازی</span></div><div class="gsm-number"><span>${icons.bell}</span><div><b>۰۹۱۲ ۳۴۵ ۶۷۸۹</b><small>شماره اصلی دریافت هشدار</small></div><button type="button" class="btn-secondary compact">ویرایش</button></div>${renderToggleRow("تماس صوتی هنگام حریق", "ارسال تماس به شماره‌های ثبت‌شده", true)}${renderToggleRow("ارسال پیامک خطا", "گزارش خطاهای پنل از طریق پیامک", true)}${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای قابل ارسال</h3><p>انتخاب رخدادهای مهم</p></div></div>${renderToggleRow("حریق", "Fire Alarm", true)}${renderToggleRow("خطا", "Fault", true)}${renderToggleRow("نظارت", "Supervisory", false)}${renderToggleRow("بازگشت به حالت عادی", "Restore", false)}</article></div>`;
+  return `<div class="setting-panel-grid"><article class="sub-card"><div class="sub-card-head"><div><h3>تلفن‌کننده GSM</h3><p>وضعیت ارسال پیامک و تماس صوتی</p></div><span class="status-chip amber">آماده‌سازی</span></div><div class="gsm-number"><span>${icons.bell}</span><div><b>۰۹۱۲ ۳۴۵ ۶۷۸۹</b><small>شماره اصلی دریافت هشدار</small></div><button type="button" class="btn-secondary compact" data-gsm-edit>ویرایش</button></div>${renderToggleRow("تماس صوتی هنگام حریق", "ارسال تماس به شماره‌های ثبت‌شده", true)}${renderToggleRow("ارسال پیامک خطا", "گزارش خطاهای پنل از طریق پیامک", true)}${renderSettingActions()}</article><article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای قابل ارسال</h3><p>انتخاب رخدادهای مهم</p></div></div>${renderToggleRow("حریق", "Fire Alarm", true)}${renderToggleRow("خطا", "Fault", true)}${renderToggleRow("نظارت", "Supervisory", false)}${renderToggleRow("بازگشت به حالت عادی", "Restore", false)}</article></div>`;
 }
 
 function renderCustomizeSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>سفارشی‌سازی اعلان‌ها</h3><p>متن و قالب پیام‌های ارسالی تلفن‌کننده را تعیین کنید.</p></div></div><div class="form-area compact-form"><div class="field-block"><label>عنوان پروژه در پیامک</label><div class="fake-input"><span>مجتمع اداری آفتاب</span></div></div><div class="field-block"><label>زبان پیام</label><div class="fake-input"><span>فارسی</span>${icons.chevronDown}</div></div><div class="field-block full"><label>قالب پیام حریق</label><textarea class="sample-textarea" data-persist-setting>هشدار حریق در {PROJECT} - {PANEL} - {TIME}</textarea></div></div>${renderSettingActions()}</article>`; }
 function renderLocationSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>موقعیت پنل</h3><p>محل نصب پنل را برای نمایش در نقشه ثبت کنید.</p></div><span class="status-chip green">ثبت شده</span></div><div class="location-map"><div class="map-grid"></div><span class="map-pin">${icons.panel}</span><div class="map-label"><b>مجتمع اداری آفتاب</b><small>تهران، خیابان ولیعصر</small></div></div><div class="form-area compact-form"><div class="field-block"><label>طبقه / بخش</label><div class="fake-input"><span>اتاق کنترل، طبقه همکف</span></div></div><div class="field-block"><label>مختصات پروژه</label><div class="fake-input" dir="ltr"><span>35.7219, 51.3347</span></div></div></div>${renderSettingActions()}</article>`; }
-function renderMonitoringSetting() { return `<div class="monitoring-grid"><article class="sub-card monitoring-hero"><div class="monitoring-ring"><span>${icons.dashboard}</span></div><span class="status-chip green">مانیتورینگ آماده</span><h3>مرکز مانیتورینگ</h3><p>وضعیت پنل‌ها، اتصال‌ها و رخدادها را از یک نمای واحد دنبال کنید.</p><button type="button" class="btn-primary">ورود به مانیتورینگ</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>وضعیت سرویس‌ها</h3><p>آخرین بررسی خودکار سیستم</p></div></div>${renderToggleRow("مانیتورینگ زنده", "دریافت وضعیت پنل‌ها در لحظه", true)}${renderToggleRow("اعلان رخداد جدید", "نمایش هشدار در داشبورد نصاب", true)}${renderToggleRow("ثبت لاگ ارتباطات", "ثبت زمان و کاربر هر اتصال", true)}${renderSettingActions()}</article></div>`; }
+function renderMonitoringSetting() { return `<div class="monitoring-grid"><article class="sub-card monitoring-hero"><div class="monitoring-ring"><span>${icons.dashboard}</span></div><span class="status-chip green">مانیتورینگ آماده</span><h3>مرکز مانیتورینگ</h3><p>وضعیت پنل‌ها، اتصال‌ها و رخدادها را از یک نمای واحد دنبال کنید.</p><button type="button" class="btn-primary" data-monitoring-open>ورود به مانیتورینگ</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>وضعیت سرویس‌ها</h3><p>آخرین بررسی خودکار سیستم</p></div></div>${renderToggleRow("مانیتورینگ زنده", "دریافت وضعیت پنل‌ها در لحظه", true)}${renderToggleRow("اعلان رخداد جدید", "نمایش هشدار در داشبورد نصاب", true)}${renderToggleRow("ثبت لاگ ارتباطات", "ثبت زمان و کاربر هر اتصال", true)}${renderSettingActions()}</article></div>`; }
 
 function renderWorkspace(project) {
-  const panel = findPanel();
+  const panel = findPanel() || { id: "", name: state.language === "en" ? "No panel selected" : "پنلی انتخاب نشده", code: "—", status: "آفلاین", alarms: 0 };
   const collapsed = settingsMenuCollapsed();
   const shellClasses = ["workspace-shell", collapsed ? "" : "settings-menu-open"].filter(Boolean).join(" ");
   const layoutClasses = ["workspace-layout", collapsed ? "settings-tree-minimized" : ""].filter(Boolean).join(" ");
@@ -1744,15 +2106,26 @@ function renderApp() {
   const content = document.querySelector("#content-root");
   if (!content) return;
   activeLanguage = state.language;
-  const isWorkspace = state.view === "workspace";
-  document.querySelector("#topbar-title").textContent = isWorkspace ? project.name : "پروژه‌ها";
-  document.querySelector("#topbar-subtitle").textContent = isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : "پروژه‌ها و پنل‌های تحت مدیریت شما";
-  const hasSettingShortcut = [...document.querySelectorAll("[data-nav-setting]")].some((item) => item.dataset.navSetting === state.selectedSettingId);
+  if (state.view === "workspace" && !project) {
+    state.view = "projects";
+    state.selectedProjectId = null;
+    state.selectedPanelId = null;
+    state.connectedPanelId = null;
+  }
+  const isWorkspace = state.view === "workspace" && Boolean(project);
+  const isProjectImages = state.view === "project-images";
+  document.querySelector("#topbar-title").textContent = isWorkspace ? project.name : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها");
+  document.querySelector("#topbar-subtitle").textContent = isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما");
+  const hasSettingShortcut = state.view === "workspace" && [...document.querySelectorAll("[data-nav-setting]")].some((item) => item.dataset.navSetting === state.selectedSettingId);
   document.querySelectorAll("[data-nav-view]").forEach((item) => {
     const active = item.dataset.navView === state.view && (item.dataset.navSetting ? item.dataset.navSetting === state.selectedSettingId : !hasSettingShortcut);
     item.classList.toggle("active", active);
   });
-  content.innerHTML = isWorkspace ? renderWorkspace(project) : renderProjectsPage();
+  content.innerHTML = isWorkspace ? renderWorkspace(project) : state.view === "project-images" ? renderProjectImagesPageV2() : renderProjectsPage();
+  if (!isWorkspace) {
+    hydrateProjectCardImages(content);
+    hydrateProjectGalleryImages(content);
+  }
   restoreGenericSettingControls();
   bindViewEvents();
   document.documentElement.lang = state.language === "en" ? "en" : "fa";
@@ -1760,6 +2133,8 @@ function renderApp() {
   updateConnectionStatus();
   updateSidebarState();
   translateUI(document.querySelector("#app"));
+  document.querySelector("[data-notifications]")?.addEventListener("click", () => showToast(state.language === "en" ? "Notifications are up to date." : "اعلان جدیدی وجود ندارد.", "info"));
+  document.querySelector("[data-upgrade-account]")?.addEventListener("click", () => showToast(state.language === "en" ? "The professional account upgrade is not configured yet." : "ارتقای حساب حرفه‌ای هنوز پیکربندی نشده است.", "info"));
   updateThemeButton();
   queueApplicationStateSave();
 }
@@ -2199,6 +2574,190 @@ function closeSettingsModal() {
   document.querySelector(".settings-modal-backdrop")?.remove();
 }
 
+
+function showProjectDialog() {
+  closeSettingsModal();
+  const english = state.language === "en";
+  const backdrop = document.createElement("div");
+  let projectImageReadPromise = Promise.resolve("");
+  backdrop.className = "settings-modal-backdrop entity-modal-backdrop";
+  backdrop.innerHTML = '<div class="settings-modal-card entity-modal-card" role="dialog" aria-modal="true">'
+    + '<div class="settings-modal-head entity-modal-heading"><div class="helper-icon">' + icons.project + '</div><div><span class="eyebrow">' + (english ? "PROJECT SETUP" : "تعریف پروژه") + '</span><h3>' + (english ? "Create project" : "ایجاد پروژه") + '</h3><p>' + (english ? "Define the project, its visual identity and location. You can add panels in the next step." : "مشخصات پروژه، تصویر و موقعیت را تعریف کنید؛ افزودن پنل در مرحله بعد انجام می‌شود.") + '</p></div></div>'
+    + '<div class="settings-modal-form entity-modal-grid">'
+    + '<label class="entity-field-wide">' + (english ? "Project name" : "نام پروژه") + '<input type="text" data-project-modal-name autofocus></label>'
+    + '<label>' + (english ? "Project type" : "نوع پروژه") + '<input type="text" data-project-modal-type placeholder="' + (english ? "Office, hotel, factory..." : "مثلاً مجتمع اداری") + '"></label>'
+    + '<label>' + (english ? "Project image" : "تصویر پروژه") + '<input type="file" data-project-modal-image accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp"><small class="field-hint">' + (english ? "PNG, JPG, WebP or AVIF · max 2 MB" : "PNG، JPG، WebP یا AVIF · حداکثر ۲ مگابایت") + '</small></label>'
+    + '<label class="entity-field-wide">' + (english ? "Location title" : "عنوان موقعیت") + '<input type="text" data-project-modal-location placeholder="' + (english ? "Address or site description" : "آدرس یا توضیح محل پروژه") + '"></label>'
+    + '<div class="project-image-preview-wrap entity-field-wide"><div class="project-image-preview" data-project-image-preview><span>' + icons.project + '</span><small>' + (english ? "Project image preview" : "پیش‌نمایش تصویر پروژه") + '</small></div></div>'
+    + '<div class="project-map-picker entity-field-wide" data-project-map><div class="project-map-grid"></div><div class="project-map-copy"><span class="map-pin">' + icons.project + '</span><b>' + (english ? "Choose project location" : "موقعیت پروژه را روی نقشه تعیین کنید") + '</b><small>' + (english ? "Map API can be connected later. Click anywhere to place the marker." : "API نقشه بعداً قابل اتصال است؛ برای تعیین نقطه روی نقشه کلیک کنید.") + '</small></div><span class="project-map-marker" data-project-map-marker hidden>' + icons.project + '</span></div>'
+    + '<label>' + (english ? "Latitude" : "عرض جغرافیایی") + '<input type="number" step="0.000001" min="-90" max="90" data-project-modal-latitude placeholder="35.689200" dir="ltr"></label>'
+    + '<label>' + (english ? "Longitude" : "طول جغرافیایی") + '<input type="number" step="0.000001" min="-180" max="180" data-project-modal-longitude placeholder="51.389000" dir="ltr"></label>'
+    + '</div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-entity-modal-cancel>' + (english ? "Cancel" : "انصراف") + '</button><button type="button" class="btn-primary" data-project-modal-confirm>' + icons.plus + (english ? "Create project" : "ایجاد پروژه") + '</button></div></div>';
+  document.body.appendChild(backdrop);
+  backdrop.querySelector(".entity-modal-heading .helper-icon")?.remove();
+  backdrop.querySelector(".entity-modal-heading .eyebrow")?.remove();
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) closeSettingsModal(); });
+  backdrop.querySelector("[data-entity-modal-cancel]")?.addEventListener("click", closeSettingsModal);
+  const updateMapMarker = () => {
+    const latitude = Number(backdrop.querySelector("[data-project-modal-latitude]")?.value);
+    const longitude = Number(backdrop.querySelector("[data-project-modal-longitude]")?.value);
+    const marker = backdrop.querySelector("[data-project-map-marker]");
+    if (!marker || !Number.isFinite(latitude) || !Number.isFinite(longitude)) { marker?.setAttribute("hidden", ""); return; }
+    marker.style.left = `${((longitude + 180) / 360) * 100}%`;
+    marker.style.top = `${((90 - latitude) / 180) * 100}%`;
+    marker.removeAttribute("hidden");
+  };
+  backdrop.querySelector("[data-project-modal-image]")?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      event.target.value = "";
+      showToast(english ? "Choose an image smaller than 2 MB." : "یک تصویر معتبر کوچک‌تر از ۲ مگابایت انتخاب کنید.", "info");
+      return;
+    }
+    const reader = new FileReader();
+    let resolveProjectImage;
+    projectImageReadPromise = new Promise((resolve) => {
+      resolveProjectImage = resolve;
+      reader.addEventListener("error", () => resolve(""), { once: true });
+      reader.addEventListener("abort", () => resolve(""), { once: true });
+    });
+    reader.addEventListener("load", () => {
+      if (!isSafeImageData(reader.result)) {
+        resolveProjectImage?.("");
+        showToast(english ? "This image format is not supported. Use PNG, JPG, WebP or AVIF." : "این فرمت تصویر پشتیبانی نمی‌شود. از PNG، JPG، WebP یا AVIF استفاده کنید.", "info");
+        return;
+      }
+      backdrop.dataset.projectImage = reader.result;
+      resolveProjectImage?.(reader.result);
+      projectImageReadPromise = Promise.resolve(reader.result);
+      const preview = backdrop.querySelector("[data-project-image-preview]");
+      if (preview) preview.innerHTML = `<img src="${escapeHtml(reader.result)}" alt="${english ? "Project preview" : "پیش‌نمایش پروژه"}"><button type="button" class="project-image-remove" data-project-image-remove aria-label="${english ? "Remove image" : "حذف تصویر"}">${icons.x}</button>`;
+    });
+    reader.readAsDataURL(file);
+  });
+  backdrop.addEventListener("click", (event) => {
+    if (event.target.closest("[data-project-image-remove]")) {
+      delete backdrop.dataset.projectImage;
+      projectImageReadPromise = Promise.resolve("");
+      const input = backdrop.querySelector("[data-project-modal-image]");
+      if (input) input.value = "";
+      const preview = backdrop.querySelector("[data-project-image-preview]");
+      if (preview) preview.innerHTML = `<span>${icons.project}</span><small>${english ? "Project image preview" : "پیش‌نمایش تصویر پروژه"}</small>`;
+    }
+  });
+  backdrop.querySelector("[data-project-map]")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-project-image-remove]")) return;
+    const map = event.currentTarget;
+    const rect = map.getBoundingClientRect();
+    const longitude = Math.max(-180, Math.min(180, -180 + ((event.clientX - rect.left) / rect.width) * 360));
+    const latitude = Math.max(-90, Math.min(90, 90 - ((event.clientY - rect.top) / rect.height) * 180));
+    const latitudeInput = backdrop.querySelector("[data-project-modal-latitude]");
+    const longitudeInput = backdrop.querySelector("[data-project-modal-longitude]");
+    if (latitudeInput) latitudeInput.value = latitude.toFixed(6);
+    if (longitudeInput) longitudeInput.value = longitude.toFixed(6);
+    updateMapMarker();
+  });
+  backdrop.querySelectorAll("[data-project-modal-latitude], [data-project-modal-longitude]").forEach((input) => input.addEventListener("input", updateMapMarker));
+  backdrop.querySelector("[data-project-modal-name]")?.focus();
+  backdrop.querySelector("[data-project-modal-confirm]")?.addEventListener("click", async () => {
+    const projectImage = await projectImageReadPromise;
+    const name = backdrop.querySelector("[data-project-modal-name]")?.value.trim();
+    const type = backdrop.querySelector("[data-project-modal-type]")?.value.trim() || (english ? "Project" : "پروژه");
+    const location = backdrop.querySelector("[data-project-modal-location]")?.value.trim() || (english ? "Not specified" : "موقعیت ثبت نشده");
+    const latitudeValue = backdrop.querySelector("[data-project-modal-latitude]")?.value.trim();
+    const longitudeValue = backdrop.querySelector("[data-project-modal-longitude]")?.value.trim();
+    if (!name) {
+      backdrop.querySelector("[data-project-modal-name]")?.focus();
+      showToast(english ? "Enter a project name first." : "ابتدا نام پروژه را وارد کنید.", "info");
+      return;
+    }
+    if (projects.some((project) => project.name.trim().toLowerCase() === name.toLowerCase())) {
+      backdrop.querySelector("[data-project-modal-name]")?.focus();
+      showToast(english ? "A project with this name already exists." : "پروژه‌ای با این نام از قبل وجود دارد.", "info");
+      return;
+    }
+    const projectId = createEntityId("project");
+    const project = {
+      id: projectId,
+      name,
+      location,
+      type,
+      image: isSafeImageData(projectImage) ? projectImage : (isSafeImageData(backdrop.dataset.projectImage) ? backdrop.dataset.projectImage : ""),
+      coordinates: latitudeValue !== "" && longitudeValue !== "" && Number.isFinite(Number(latitudeValue)) && Number.isFinite(Number(longitudeValue))
+        ? { lat: Number(latitudeValue), lng: Number(longitudeValue), address: location }
+        : { lat: null, lng: null, address: location },
+      status: "آنلاین",
+      panels: [],
+      images: isSafeImageData(projectImage) ? [{ id: `${projectId}-cover`, src: projectImage, name: "", createdAt: new Date().toISOString() }] : [],
+    };
+    projects.push(project);
+    state.selectedProjectId = project.id;
+    state.selectedPanelId = null;
+    state.connectedPanelId = null;
+    state.view = "workspace";
+    state.selectedSettingId = "date-time";
+    state.projectMenuOpen = false;
+    state.panelMenuOpen = false;
+    state.settingsTreeCollapsed = true;
+    const confirmButton = backdrop.querySelector("[data-project-modal-confirm]");
+    if (confirmButton) confirmButton.disabled = true;
+    closeSettingsModal();
+    await saveApplicationStateNow();
+    renderApp();
+    showToast(english ? name + " was created. Add its first panel to continue." : "پروژه «" + name + "» ایجاد شد؛ حالا اولین پنل را اضافه کنید.");
+    requestAnimationFrame(() => showPanelDialog(true));
+  });
+}
+
+function showPanelDialog(isFirstPanel = false) {
+  closeSettingsModal();
+  const project = findProject();
+  if (!project) return;
+  const english = state.language === "en";
+  const defaultCode = "FIRE-CTRL-" + String(project.panels.length + 1).padStart(2, "0");
+  const backdrop = document.createElement("div");
+  backdrop.className = "settings-modal-backdrop entity-modal-backdrop";
+  backdrop.innerHTML = '<div class="settings-modal-card entity-modal-card" role="dialog" aria-modal="true">'
+    + '<div class="settings-modal-head entity-modal-heading"><div class="helper-icon">' + icons.panel + '</div><div><span class="eyebrow">' + (english ? "PANEL SETUP" : "تعریف پنل") + '</span><h3>' + (english ? (isFirstPanel ? "Add the first panel" : "Add panel") : (isFirstPanel ? "افزودن اولین پنل" : "افزودن پنل")) + '</h3><p>' + (english ? "Add a panel to " + escapeHtml(project.name) + "." : "یک پنل به «" + escapeHtml(project.name) + "» اضافه کنید.") + '</p></div></div>'
+    + '<div class="settings-modal-form entity-modal-grid">'
+    + '<label>' + (english ? "Panel name" : "نام پنل") + '<input type="text" data-panel-modal-name autofocus></label>'
+    + '<label>' + (english ? "Panel code" : "کد پنل") + '<input type="text" data-panel-modal-code value="' + escapeHtml(defaultCode) + '" dir="ltr"></label>'
+    + '<label>' + (english ? "Initial status" : "وضعیت اولیه") + '<select data-panel-modal-status><option value="آفلاین">' + (english ? "Offline" : "آفلاین") + '</option><option value="آنلاین">' + (english ? "Online" : "آنلاین") + '</option></select></label>'
+    + '</div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-entity-modal-cancel>' + (english ? (isFirstPanel ? "Add later" : "Cancel") : (isFirstPanel ? "بعداً اضافه می‌کنم" : "انصراف")) + '</button><button type="button" class="btn-primary" data-panel-modal-confirm>' + icons.plus + (english ? "Add panel" : "افزودن پنل") + '</button></div></div>';
+  document.body.appendChild(backdrop);
+  backdrop.querySelector(".entity-modal-heading .helper-icon")?.remove();
+  backdrop.querySelector(".entity-modal-heading .eyebrow")?.remove();
+  backdrop.querySelector("[data-panel-modal-status]")?.closest("label")?.remove();
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) closeSettingsModal(); });
+  backdrop.querySelector("[data-entity-modal-cancel]")?.addEventListener("click", closeSettingsModal);
+  backdrop.querySelector("[data-panel-modal-name]")?.focus();
+  backdrop.querySelector("[data-panel-modal-confirm]")?.addEventListener("click", () => {
+    const name = backdrop.querySelector("[data-panel-modal-name]")?.value.trim();
+    const code = backdrop.querySelector("[data-panel-modal-code]")?.value.trim() || defaultCode;
+    const status = backdrop.querySelector("[data-panel-modal-status]")?.value || "آفلاین";
+    if (!name) {
+      backdrop.querySelector("[data-panel-modal-name]")?.focus();
+      showToast(english ? "Enter a panel name first." : "ابتدا نام پنل را وارد کنید.", "info");
+      return;
+    }
+    if (project.panels.some((panel) => panel.code.toLowerCase() === code.toLowerCase())) {
+      backdrop.querySelector("[data-panel-modal-code]")?.focus();
+      showToast(english ? "A panel with this code already exists in this project." : "پنلی با این کد در این پروژه وجود دارد.", "info");
+      return;
+    }
+    const panel = { id: createEntityId("panel"), name, code, status, alarms: 0 };
+    project.panels.push(panel);
+    state.selectedPanelId = panel.id;
+    state.connectedPanelId = null;
+    state.settingsDirty = false;
+    closeSettingsModal();
+    void saveApplicationStateNow();
+    renderApp();
+    showToast(english ? name + " was added to the project." : "پنل «" + name + "» به پروژه اضافه شد.");
+  });
+}
+
 function showSettingsFileDialog(onSaved) {
   closeSettingsModal();
   const english = state.language === "en";
@@ -2258,9 +2817,44 @@ function requestSettingsTransition(action) {
   showUnsavedSettingsDialog(action, action);
 }
 
+function renderUserManagementPreservingScroll() {
+  const scroller = document.querySelector(".user-permission-list");
+  const scrollTop = scroller?.scrollTop || 0;
+  const scrollLeft = scroller?.scrollLeft || 0;
+  renderApp();
+  const restoreScroll = () => {
+    const nextScroller = document.querySelector(".user-permission-list");
+    if (!nextScroller) return;
+    nextScroller.scrollTop = scrollTop;
+    nextScroller.scrollLeft = scrollLeft;
+  };
+  requestAnimationFrame(() => {
+    restoreScroll();
+    requestAnimationFrame(restoreScroll);
+  });
+}
+
+function decorateProjectDeleteControls(content) {
+  content.querySelectorAll(".project-card[data-project-id] .project-card-title").forEach((title) => {
+    if (title.querySelector("[data-project-delete]")) return;
+    const projectId = title.closest("[data-project-id]")?.dataset.projectId;
+    if (!projectId) return;
+    const control = document.createElement("span");
+    control.className = "project-delete-button";
+    control.dataset.projectDelete = projectId;
+    control.setAttribute("role", "button");
+    control.setAttribute("tabindex", "0");
+    control.setAttribute("aria-label", state.language === "en" ? "Delete project" : "\u062d\u0630\u0641 \u067e\u0631\u0648\u0698\u0647");
+    control.title = state.language === "en" ? "Delete project" : "\u062d\u0630\u0641 \u067e\u0631\u0648\u0698\u0647";
+    control.innerHTML = icons.trash;
+    title.appendChild(control);
+  });
+}
+
 function bindViewEvents() {
   const content = document.querySelector("#content-root");
   if (!content) return;
+  decorateProjectDeleteControls(content);
   if (!content.dataset.settingsDirtyTrackingBound) {
     const isUtilityControl = (target) => target.closest("[data-save-setting], [data-settings-file-select], [data-settings-file-create], [data-settings-file-name], [data-read-panel], [data-upload-panel], [data-settings-connect-panel], [data-user-create], [data-managed-user-select], [data-user-save], [data-user-delete], [data-user-project], [data-user-panel], [data-managed-user-field], [data-new-user-name], [data-new-user-password]");
     content.addEventListener("input", (event) => {
@@ -2277,7 +2871,17 @@ function bindViewEvents() {
   }
   if (!content.dataset.projectNavigationBound) {
     content.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-project-id]");
+      const deleteControl = event.target.closest("[data-project-delete]");
+      if (deleteControl && content.contains(deleteControl)) {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteProject(deleteControl.dataset.projectDelete);
+        return;
+      }
+      // Only an actual project card navigates to the monitoring workspace.
+      // Gallery inputs and gallery action buttons also carry a project id, but
+      // must stay inside the project image manager.
+      const button = event.target.closest(".project-card[data-project-id]");
       if (!button || !content.contains(button)) return;
       const selectedProject = projects.find((project) => project.id === button.dataset.projectId);
       if (!selectedProject) return;
@@ -2293,8 +2897,117 @@ function bindViewEvents() {
         renderApp();
       });
     });
+    content.addEventListener("keydown", (event) => {
+      const deleteControl = event.target.closest("[data-project-delete]");
+      if (!deleteControl || !content.contains(deleteControl) || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      deleteProject(deleteControl.dataset.projectDelete);
+    });
     content.dataset.projectNavigationBound = "true";
   }
+  content.querySelectorAll("[data-project-create]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => showProjectDialog())));
+  content.querySelectorAll("[data-panel-create]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => showPanelDialog())));
+  content.querySelectorAll("[data-project-images-open], [data-project-images-open-button]").forEach((control) => control.addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.projectImagesProjectId = control.dataset.projectImageProjectId;
+    renderApp();
+  }));
+  content.querySelectorAll("[data-project-images-back]").forEach((button) => button.addEventListener("click", () => {
+    state.projectImagesProjectId = null;
+    renderApp();
+  }));
+  content.querySelectorAll("[data-project-image-input]").forEach((input) => input.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    const project = projects.find((item) => item.id === event.target.dataset.projectId);
+    if (!file || !project) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      event.target.value = "";
+      showToast(state.language === "en" ? "Choose an image smaller than 2 MB." : "یک تصویر معتبر کوچک‌تر از ۲ مگابایت انتخاب کنید.", "info");
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener("load", async () => {
+      if (!isSafeImageData(reader.result)) {
+        showToast(state.language === "en" ? "This image format is not supported." : "این فرمت تصویر پشتیبانی نمی‌شود.", "info");
+        return;
+      }
+      project.images = normalizeProjectGallery(project);
+      const image = { id: createEntityId("project-image"), src: reader.result, name: file.name, createdAt: new Date().toISOString() };
+      project.images.push(image);
+      if (!isSafeImageSource(project.image)) project.image = image.src;
+      await saveApplicationStateNow();
+      renderApp();
+      showToast(state.language === "en" ? "Project image updated." : "تصویر پروژه به‌روزرسانی شد.");
+    }, { once: true });
+    reader.readAsDataURL(file);
+  }));
+  content.querySelectorAll("[data-project-gallery-remove]").forEach((button) => button.addEventListener("click", async () => {
+    const project = projects.find((item) => item.id === button.dataset.projectId);
+    const imageIndex = project?.images?.findIndex((item) => item.id === button.dataset.projectGalleryImageId) ?? -1;
+    if (!project || imageIndex < 0) return;
+    const [removed] = project.images.splice(imageIndex, 1);
+    if (removed.src === project.image) project.image = project.images[0]?.src || "";
+    renderApp();
+    await saveApplicationStateNow();
+    showToast(state.language === "en" ? "Project image removed." : "تصویر پروژه حذف شد.");
+  }));
+  content.querySelectorAll("[data-project-image-cover]").forEach((button) => button.addEventListener("click", async () => {
+    const project = projects.find((item) => item.id === button.dataset.projectId);
+    const image = project?.images?.find((item) => item.id === button.dataset.projectGalleryImageId);
+    if (!project || !image) return;
+    project.image = image.src;
+    renderApp();
+    await saveApplicationStateNow();
+    showToast(state.language === "en" ? "Project cover updated." : "کاور پروژه به‌روزرسانی شد.");
+  }));
+
+  content.querySelectorAll("[data-group-new]").forEach((button) => button.addEventListener("click", () => {
+    const numbers = state.groupTab === "zone"
+      ? Object.keys(state.zoneGroups || {}).map(Number)
+      : [...Object.keys(state.ioInputGroups || {}), ...Object.keys(state.ioOutputGroups || {})].map(Number);
+    const nextNumber = Math.max(0, ...numbers.filter(Number.isFinite)) + 1;
+    if (state.groupTab === "zone") {
+      state.zoneGroupNumber = nextNumber;
+      state.zoneGroups[nextNumber] = [];
+    } else {
+      state.ioInputGroupNumber = nextNumber;
+      state.ioOutputGroupNumber = nextNumber;
+      state.ioInputGroups[nextNumber] = [];
+      state.ioOutputGroups[nextNumber] = [];
+    }
+    state.groupSelectedDeviceKey = null;
+    state.settingsDirty = true;
+    queueApplicationStateSave();
+    renderApp();
+    showToast(state.language === "en" ? "A new group was created." : "گروه جدید ایجاد شد.");
+  }));
+  content.querySelectorAll("[data-events-read]").forEach((button) => button.addEventListener("click", () => {
+    if (!requireCurrentPanelConnection()) return;
+    showToast(state.language === "en" ? "Panel events were refreshed." : "رویدادهای پنل به‌روزرسانی شد.");
+  }));
+  content.querySelectorAll("[data-events-export]").forEach((button) => button.addEventListener("click", () => {
+    window.print();
+  }));
+  content.querySelectorAll("[data-remote-connect]").forEach((button) => button.addEventListener("click", () => {
+    state.selectedSettingId = "saved-settings";
+    renderApp();
+    showToast(state.language === "en" ? "Configure the panel connection from Saved Settings." : "اتصال پنل را از منوی تنظیمات ذخیره‌شده تنظیم کنید.", "info");
+  }));
+  content.querySelectorAll("[data-report-generate]").forEach((button) => button.addEventListener("click", () => {
+    showToast(state.language === "en" ? "The configuration report is ready to print." : "گزارش تنظیمات برای چاپ آماده شد.");
+    window.print();
+  }));
+  content.querySelectorAll("[data-report-download]").forEach((button) => button.addEventListener("click", () => {
+    window.print();
+  }));
+  content.querySelectorAll("[data-gsm-edit]").forEach((button) => button.addEventListener("click", () => {
+    state.selectedSettingId = "customize";
+    renderApp();
+  }));
+  content.querySelectorAll("[data-monitoring-open]").forEach((button) => button.addEventListener("click", () => {
+    showToast(state.language === "en" ? "Monitoring view is ready for a live panel connection." : "نمای مانیتورینگ برای اتصال زنده‌ی پنل آماده است.", "info");
+  }));
   content.querySelectorAll("[data-back-projects]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => {
     state.view = "projects";
     state.selectedProjectId = null;
@@ -2401,7 +3114,10 @@ function bindViewEvents() {
     showToast(state.language === "en" ? "Language changed to English." : "زبان نرم‌افزار به فارسی تغییر کرد.");
   }));
   content.querySelectorAll("[data-panel-refresh]").forEach((button) => button.addEventListener("click", () => showToast("وضعیت پنل‌ها به‌روزرسانی شد.")));
-  content.querySelectorAll("[data-save-setting]").forEach((button) => button.addEventListener("click", () => showSettingsFileDialog()));
+  content.querySelectorAll("[data-save-setting]").forEach((button) => button.addEventListener("click", () => {
+    if (state.selectedSettingId === "password-change" && !validatePanelUserPasswords()) return;
+    showSettingsFileDialog();
+  }));
   content.querySelectorAll("[data-settings-file-create]").forEach((button) => button.addEventListener("click", () => {
     const input = content.querySelector("[data-settings-file-name]");
     const name = input?.value.trim();
@@ -2454,7 +3170,18 @@ function bindViewEvents() {
   content.querySelectorAll("[data-user-field]").forEach((input) => input.addEventListener("input", () => {
     const user = state.panelUserAccounts?.find((item) => item.id === input.dataset.userId);
     if (!user) return;
-    user[input.dataset.userField] = input.value;
+    if (input.dataset.userField === "password-confirmation") {
+      state.passwordConfirmations ||= {};
+      state.passwordEditing ||= {};
+      state.passwordConfirmations[user.id] = input.value;
+      state.passwordEditing[user.id] = true;
+    } else {
+      user[input.dataset.userField] = input.value;
+      if (input.dataset.userField === "password") {
+        state.passwordEditing ||= {};
+        state.passwordEditing[user.id] = true;
+      }
+    }
     localStorage.setItem("fire-panel-panel-users", JSON.stringify(state.panelUserAccounts || defaultUserAccounts));
     queueApplicationStateSave();
   }));
@@ -2479,7 +3206,7 @@ function bindViewEvents() {
     else delete access.projects[project.id];
     localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
     queueApplicationStateSave();
-    renderApp();
+    renderUserManagementPreservingScroll();
   }));
   content.querySelectorAll("[data-user-panel]").forEach((input) => input.addEventListener("change", () => {
     const user = getManagedUser();
@@ -2495,7 +3222,7 @@ function bindViewEvents() {
     else delete access.projects[projectId];
     localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
     queueApplicationStateSave();
-    renderApp();
+    renderUserManagementPreservingScroll();
   }));
   content.querySelectorAll("[data-user-create]").forEach((button) => button.addEventListener("click", () => {
     const nameInput = content.querySelector("[data-new-user-name]");
@@ -2580,9 +3307,15 @@ function bindEvents() {
     requestSettingsTransition(() => {
       state.view = button.dataset.navView;
       if (button.dataset.navSetting) state.selectedSettingId = button.dataset.navSetting;
+      if (state.view === "project-images") state.projectImagesProjectId = null;
       if (state.view === "workspace" && !state.selectedProjectId) {
-        state.selectedProjectId = projects[0].id;
-        state.selectedPanelId = projects[0].panels[0].id;
+        const firstProject = projects[0];
+        if (!firstProject) {
+          state.view = "projects";
+        } else {
+          state.selectedProjectId = firstProject.id;
+          state.selectedPanelId = firstProject.panels[0]?.id || null;
+        }
       }
       closeMenu();
       renderApp();
