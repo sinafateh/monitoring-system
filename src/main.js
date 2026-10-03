@@ -34,6 +34,13 @@ const icons = {
   wifi: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a5.5 5.5 0 0 1 7 0M12 19h.01"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`,
+  qr: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM18 18h2v2h-2zM14 18h2v2h-2z"/></svg>`,
+  location: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>`,
+  alert: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 17H3L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>`,
+  arrowUpRight: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>`,
+  loader: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12"/></svg>`,
 };
 
 const monthNames = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
@@ -269,7 +276,7 @@ const state = {
   draftHolidayYear: today[0], draftHolidayMonth: 1, draftHolidayDay: 1,
   holidayCalendarOpen: false, holidayCalendarMode: "days", holidayCalendarYearPage: Math.floor(today[0] / 12) * 12,
   selectedHolidayIndex: 0, holidayDates: [{ year: today[0], month: 1, day: 1 }, { year: today[0], month: 1, day: 13 }],
-  view: "projects", selectedProjectId: null, selectedPanelId: null, connectedPanelId: null, selectedSettingId: "date-time",
+  view: "projects", selectedProjectId: null, selectedPanelId: null, panelDirectoryPanelId: null, panelDirectoryTab: "status", connectedPanelId: null, selectedSettingId: "date-time",
   projectMenuOpen: false, panelMenuOpen: false, settingsTreeCollapsed: true, selectedManagedUserId: "admin", projectImagesProjectId: null,
   userAccounts: storedManagedUsers,
   panelUserAccounts: storedPanelUserAccounts,
@@ -834,7 +841,7 @@ function renderShell() {
           <button class="nav-item" type="button" data-nav-view="project-images">${icons.image}<span>عکس‌های پروژه</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace">${icons.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
           <p class="nav-caption nav-space">مدیریت</p>
-          <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="loop-card">${icons.panel}<span>پنل‌های من</span></button>
+          <button class="nav-item" type="button" data-nav-view="panels">${icons.panel}<span>پنل‌های من</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="saved-settings">${icons.report}<span>تنظیمات ذخیره شده</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="user-management">${icons.user}<span>مدیریت کاربران</span></button>
@@ -2093,7 +2100,129 @@ function renderCustomizeSetting() { return `<article class="sub-card"><div class
 function renderLocationSetting() { return `<article class="sub-card"><div class="sub-card-head"><div><h3>موقعیت پنل</h3><p>محل نصب پنل را برای نمایش در نقشه ثبت کنید.</p></div><span class="status-chip green">ثبت شده</span></div><div class="location-map"><div class="map-grid"></div><span class="map-pin">${icons.panel}</span><div class="map-label"><b>مجتمع اداری آفتاب</b><small>تهران، خیابان ولیعصر</small></div></div><div class="form-area compact-form"><div class="field-block"><label>طبقه / بخش</label><div class="fake-input"><span>اتاق کنترل، طبقه همکف</span></div></div><div class="field-block"><label>مختصات پروژه</label><div class="fake-input" dir="ltr"><span>35.7219, 51.3347</span></div></div></div>${renderSettingActions()}</article>`; }
 function renderMonitoringSetting() { return `<div class="monitoring-grid"><article class="sub-card monitoring-hero"><div class="monitoring-ring"><span>${icons.dashboard}</span></div><span class="status-chip green">مانیتورینگ آماده</span><h3>مرکز مانیتورینگ</h3><p>وضعیت پنل‌ها، اتصال‌ها و رخدادها را از یک نمای واحد دنبال کنید.</p><button type="button" class="btn-primary" data-monitoring-open>ورود به مانیتورینگ</button></article><article class="sub-card"><div class="sub-card-head"><div><h3>وضعیت سرویس‌ها</h3><p>آخرین بررسی خودکار سیستم</p></div></div>${renderToggleRow("مانیتورینگ زنده", "دریافت وضعیت پنل‌ها در لحظه", true)}${renderToggleRow("اعلان رخداد جدید", "نمایش هشدار در داشبورد نصاب", true)}${renderToggleRow("ثبت لاگ ارتباطات", "ثبت زمان و کاربر هر اتصال", true)}${renderSettingActions()}</article></div>`; }
 
+const demoPanelStates = {
+  "aftab-main": "connected",
+  "aftab-parking": "connected",
+  "aftab-west": "offline",
+  "shahrak-main": "connected",
+  "shahrak-west": "connecting",
+  "mehr-main": "unconfigured",
+  "mehr-office": "offline",
+  "mehr-storage": "error",
+  "mehr-gate": "connected",
+  "nik-main": "connected",
+  "nik-kitchen": "connected",
+};
+
+function getPanelDirectoryState(project, panel) {
+  const status = panel.connectionState || demoPanelStates[panel.id] || (panel.status === "متصل" || panel.status === "Online" ? "connected" : "offline");
+  const english = state.language === "en";
+  const states = {
+    connected: { label: english ? "Connected" : "متصل", tone: "connected", lastSeen: english ? "Just now" : "همین الان", icon: icons.check },
+    offline: { label: english ? "Disconnected" : "قطع ارتباط", tone: "offline", lastSeen: english ? "12 minutes ago" : "۱۲ دقیقه پیش", icon: icons.alert },
+    connecting: { label: english ? "Connecting" : "در حال برقراری ارتباط", tone: "connecting", lastSeen: english ? "Checking now" : "در حال بررسی", icon: icons.loader },
+    unconfigured: { label: english ? "Needs setup" : "نیاز به راه‌اندازی", tone: "unconfigured", lastSeen: english ? "Not configured yet" : "هنوز راه‌اندازی نشده", icon: icons.info },
+    error: { label: english ? "Connection error" : "خطا در ارتباط", tone: "error", lastSeen: english ? "Last attempt 8 minutes ago" : "آخرین تلاش ۸ دقیقه پیش", icon: icons.alert },
+  };
+  return { key: states[status] ? status : "offline", ...states[status] || states.offline, project, panel };
+}
+
+function getPanelDirectoryEntries() {
+  return projects.flatMap((project) => project.panels.map((panel) => getPanelDirectoryState(project, panel)));
+}
+
+function renderPanelStateChip(entry) {
+  return `<span class="panel-directory-status ${entry.tone}"><i>${entry.icon}</i><b>${entry.label}</b></span>`;
+}
+
+function renderPanelsPage() {
+  const english = state.language === "en";
+  const entries = getPanelDirectoryEntries();
+  const connected = entries.filter((entry) => entry.key === "connected").length;
+  const attention = entries.filter((entry) => ["offline", "error"].includes(entry.key)).length;
+  const sites = projects.filter((project) => project.panels.length);
+  return `<section class="panel-directory-page">
+    <section class="breadcrumb"><b>${english ? "My panels" : "پنل‌های من"}</b></section>
+    <section class="page-intro panel-directory-intro"><div class="page-intro-copy"><div class="eyebrow">${english ? "FIRE PANEL MANAGEMENT" : "مدیریت پنل‌های اعلام حریق"}</div><h2>${english ? "My panels" : "پنل‌های من"}</h2><p>${english ? "Manage every fire panel by its site and installation location." : "همه پنل‌های اعلام حریق را بر اساس سایت و محل نصب مدیریت کنید."}</p></div><div class="page-intro-actions"><div class="project-summary panel-summary"><span>${icons.panel}</span><div><small>${english ? "Panel overview" : "نمای کلی پنل‌ها"}</small><b>${faDigits(entries.length)} ${english ? "panels" : "پنل"} · ${faDigits(connected)} ${english ? "connected" : "متصل"}</b></div></div><button type="button" class="btn-primary" data-panel-directory-add>${icons.plus}${english ? "Add new panel" : "افزودن پنل جدید"}</button></div></section>
+    <section class="panel-directory-stat-grid"><div class="panel-directory-stat"><span class="connected">${icons.check}</span><div><small>${english ? "Connected" : "متصل"}</small><b>${faDigits(connected)}</b></div></div><div class="panel-directory-stat"><span class="offline">${icons.alert}</span><div><small>${english ? "Needs attention" : "نیازمند بررسی"}</small><b>${faDigits(attention)}</b></div></div><div class="panel-directory-stat"><span class="sites">${icons.location}</span><div><small>${english ? "Sites" : "سایت‌ها"}</small><b>${faDigits(sites.length)}</b></div></div></section>
+    ${sites.length ? sites.map((project) => {
+      const projectEntries = entries.filter((entry) => entry.project.id === project.id);
+      return `<section class="panel-site-section"><div class="panel-site-heading"><div class="panel-site-title"><span class="panel-site-icon">${icons.location}</span><div><span class="eyebrow">${english ? "SITE" : "سایت"}</span><h3>${escapeHtml(project.name)}</h3><p>${icons.location}${escapeHtml(project.location)}</p></div></div><span class="panel-site-count">${faDigits(projectEntries.length)} ${english ? "panels" : "پنل"}</span></div><div class="panel-directory-grid">${projectEntries.map((entry) => `<article class="panel-directory-card ${entry.tone}"><div class="panel-directory-card-head"><span class="panel-directory-card-icon">${icons.panel}</span><span class="panel-directory-code" dir="ltr">${escapeHtml(entry.panel.code || "PNL-DEMO")}</span></div><div class="panel-directory-card-copy"><h4>${escapeHtml(entry.panel.name)}</h4><p>${icons.location}${escapeHtml(project.location)}</p></div>${renderPanelStateChip(entry)}<div class="panel-directory-last-seen"><span>${icons.clock}</span><span>${english ? "Last connection" : "آخرین ارتباط"}<b>${entry.lastSeen}</b></span></div><button type="button" class="panel-directory-manage" data-panel-directory-open data-project-id="${escapeHtml(project.id)}" data-panel-id="${escapeHtml(entry.panel.id)}">${english ? "Manage" : "مدیریت"}${icons.chevronLeft}</button></article>`).join("")}</div></section>`;
+    }).join("") : `<div class="panel-directory-empty"><span>${icons.panel}</span><h3>${english ? "No panels yet" : "هنوز پنلی ثبت نشده است"}</h3><p>${english ? "Add your first panel to start managing your fire protection sites." : "اولین پنل خود را اضافه کنید تا مدیریت سایت‌های اعلام حریق را شروع کنید."}</p><button type="button" class="btn-primary" data-panel-directory-add>${icons.plus}${english ? "Add new panel" : "افزودن پنل جدید"}</button></div>`}
+  </section>`;
+}
+
+function findPanelDirectoryEntry() {
+  return getPanelDirectoryEntries().find((entry) => entry.panel.id === state.panelDirectoryPanelId) || getPanelDirectoryEntries()[0] || null;
+}
+
+function renderPanelDetailPage() {
+  const english = state.language === "en";
+  const entry = findPanelDirectoryEntry();
+  if (!entry) return renderPanelsPage();
+  const tab = state.panelDirectoryTab || "status";
+  const technicalId = entry.panel.gatewayId || `GW-${String(entry.panel.id).slice(-6).toUpperCase()}`;
+  const firmware = entry.panel.firmware || "v1.4.2";
+  const events = entry.panel.alarms ? [{ title: english ? "Active alarm" : "هشدار فعال", detail: english ? `${entry.panel.alarms} alarm(s) reported by the panel` : `${faDigits(entry.panel.alarms)} هشدار از پنل گزارش شده است`, tone: "danger" }] : [{ title: english ? "Panel is ready" : "پنل آماده است", detail: english ? "No open event has been recorded for this demo panel." : "برای این پنل Demo رخداد بازی ثبت نشده است.", tone: "success" }];
+  return `<section class="panel-detail-page"><section class="panel-detail-breadcrumb"><button type="button" data-panels-back>${icons.chevronRight}${english ? "My panels" : "پنل‌های من"}</button><span>${icons.chevronLeft}</span><b>${escapeHtml(entry.project.name)}</b><span>${icons.chevronLeft}</span><strong>${escapeHtml(entry.panel.name)}</strong></section><section class="panel-detail-hero"><div class="panel-detail-hero-icon">${icons.panel}</div><div class="panel-detail-hero-copy"><span class="eyebrow">${english ? "PANEL MANAGEMENT" : "مدیریت پنل"}</span><h2>${escapeHtml(entry.panel.name)}</h2><p>${icons.location}${escapeHtml(entry.project.name)} · ${escapeHtml(entry.project.location)}</p></div><div class="panel-detail-hero-status">${renderPanelStateChip(entry)}<small>${entry.lastSeen}</small></div></section><nav class="panel-detail-tabs" aria-label="${english ? "Panel management sections" : "بخش‌های مدیریت پنل"}"><button type="button" class="${tab === "status" ? "active" : ""}" data-panel-detail-tab="status">${icons.dashboard}${english ? "Status" : "وضعیت"}</button><button type="button" class="${tab === "settings" ? "active" : ""}" data-panel-detail-tab="settings">${icons.settings}${english ? "Settings" : "تنظیمات"}</button><button type="button" class="${tab === "events" ? "active" : ""}" data-panel-detail-tab="events">${icons.bell}${english ? "Events" : "رویدادها"}${entry.panel.alarms ? `<em>${faDigits(entry.panel.alarms)}</em>` : ""}</button></nav>${tab === "settings" ? `<section class="panel-detail-content"><article class="panel-detail-card panel-detail-settings-card"><div class="panel-detail-card-heading"><span>${icons.settings}</span><div><h3>${english ? "Panel configuration" : "پیکربندی پنل"}</h3><p>${english ? "Open the existing configuration workspace for this panel." : "فضای تنظیمات موجود پنل را برای پیکربندی باز کنید."}</p></div></div><button type="button" class="btn-primary" data-panel-detail-settings>${icons.arrowUpRight}${english ? "Open panel settings" : "ورود به تنظیمات پنل"}</button></article><article class="panel-detail-card"><div class="panel-detail-card-heading"><span>${icons.info}</span><div><h3>${english ? "Safe demo mode" : "حالت Demo امن"}</h3><p>${english ? "This screen does not connect to a real panel. Settings remain in the current application state." : "این صفحه به پنل واقعی متصل نمی‌شود و تنظیمات در وضعیت فعلی برنامه نگهداری می‌شوند."}</p></div></div></article></section>` : tab === "events" ? `<section class="panel-detail-content"><article class="panel-detail-card"><div class="panel-detail-card-heading"><span>${icons.bell}</span><div><h3>${english ? "Recent events" : "رویدادهای اخیر"}</h3><p>${english ? "A clear history for the selected panel." : "تاریخچه‌ی واضح پنل انتخاب‌شده."}</p></div></div><div class="panel-event-list">${events.map((event) => `<div class="panel-event-row ${event.tone}"><span>${event.tone === "danger" ? icons.alert : icons.check}</span><div><b>${event.title}</b><small>${event.detail}</small></div><time>${english ? "Today" : "امروز"}</time></div>`).join("")}</div></article></section>` : `<section class="panel-detail-content"><div class="panel-detail-overview-grid"><article class="panel-detail-card panel-health-card"><div class="panel-detail-card-heading"><span>${entry.tone === "connected" ? icons.shield : icons.alert}</span><div><h3>${english ? "Connection health" : "سلامت ارتباط"}</h3><p>${entry.key === "connected" ? (english ? "The panel is responding normally in this demo." : "پنل در این Demo به‌صورت عادی پاسخ می‌دهد.") : (english ? "The panel needs attention before it can be monitored normally." : "این پنل برای مانیتورینگ عادی نیازمند بررسی است.")}</p></div></div><div class="panel-health-meter ${entry.tone}"><i></i><b>${entry.key === "connected" ? (english ? "Healthy" : "سالم") : entry.label}</b></div></article><article class="panel-detail-card"><div class="panel-detail-card-heading"><span>${icons.dashboard}</span><div><h3>${english ? "Quick overview" : "نمای سریع"}</h3><p>${english ? "Current demo readings for this panel." : "خوانش‌های Demo فعلی این پنل."}</p></div></div><div class="panel-quick-metrics"><div><small>${english ? "Open alarms" : "هشدار باز"}</small><b>${faDigits(entry.panel.alarms || 0)}</b></div><div><small>${english ? "Devices" : "دیوایس‌ها"}</small><b>${faDigits(12 + (entry.panel.alarms || 0))}</b></div><div><small>${english ? "Last seen" : "آخرین ارتباط"}</small><b>${entry.key === "connected" ? (english ? "Now" : "اکنون") : entry.lastSeen.split(" ")[0]}</b></div></div></article></div><article class="panel-detail-card panel-technical-card"><div class="panel-detail-card-heading"><span>${icons.info}</span><div><h3>${english ? "Technical information" : "اطلاعات فنی"}</h3><p>${english ? "Visible here for technicians; it is hidden from the primary user flow." : "این بخش برای تکنسین‌هاست و در مسیر اصلی کاربر نمایش داده نمی‌شود."}</p></div></div><div class="panel-technical-grid"><div><small>${english ? "Panel ID" : "شناسه پنل"}</small><b dir="ltr">${escapeHtml(entry.panel.code || "PNL-DEMO")}</b></div><div><small>${english ? "Gateway" : "Gateway"}</small><b dir="ltr">${escapeHtml(technicalId)}</b></div><div><small>${english ? "Firmware" : "Firmware"}</small><b dir="ltr">${escapeHtml(firmware)}</b></div><div><small>${english ? "Last connection" : "آخرین ارتباط"}</small><b>${entry.lastSeen}</b></div></div></article></section>`}</section>`;
+}
+
+function showPanelOnboarding() {
+  closeSettingsModal();
+  const english = state.language === "en";
+  const backdrop = document.createElement("div");
+  backdrop.className = "settings-modal-backdrop panel-onboarding-backdrop";
+  let step = 1;
+  let identified = null;
+  const referenceProject = projects.find((project) => project.panels.length) || projects[0];
+  const renderStep = () => {
+    const defaultCode = "PNL-8F42-19";
+    const projectOptions = projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)} · ${escapeHtml(project.location)}</option>`).join("");
+    backdrop.innerHTML = `<div class="settings-modal-card panel-onboarding-card" role="dialog" aria-modal="true" aria-labelledby="panel-onboarding-title"><div class="panel-onboarding-progress"><span class="active"></span><span class="${step > 1 ? "active" : ""}"></span><span class="${step > 2 ? "active" : ""}"></span></div>${step === 1 ? `<div class="settings-modal-head panel-onboarding-heading"><div class="helper-icon">${icons.panel}</div><div><span class="eyebrow">${english ? "ADD PANEL" : "افزودن پنل"}</span><h3 id="panel-onboarding-title">${english ? "Add a new panel" : "افزودن پنل جدید"}</h3><p>${english ? "Enter the identifier printed on the panel." : "شناسه یا کدی را که روی پنل نوشته شده وارد کنید."}</p></div></div><div class="panel-onboarding-form"><label>${english ? "Panel identifier" : "شناسه پنل"}<input type="text" data-onboarding-code value="${defaultCode}" dir="ltr" placeholder="PNL-8F42-19"><small>${english ? "You do not need to know any network or hardware details." : "لازم نیست اطلاعات شبکه یا سخت‌افزار را بدانید."}</small></label><div class="panel-qr-divider"><span>${english ? "or" : "یا"}</span></div><button type="button" class="btn-secondary panel-scan-button" data-onboarding-scan>${icons.qr}${english ? "Scan QR Code" : "اسکن QR Code"}</button></div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-onboarding-cancel>${english ? "Cancel" : "انصراف"}</button><button type="button" class="btn-primary" data-onboarding-next>${english ? "Continue" : "ادامه"}${icons.chevronLeft}</button></div>` : step === 2 ? `<div class="panel-onboarding-success"><div class="panel-success-icon">${icons.check}</div><span class="eyebrow">${english ? "IDENTIFICATION COMPLETE" : "شناسایی موفق"}</span><h3 id="panel-onboarding-title">${english ? "Panel identified" : "پنل شناسایی شد"} ✓</h3><p>${english ? "The panel is ready to be named for everyday use." : "پنل برای نام‌گذاری و استفاده روزمره آماده است."}</p><div class="panel-identified-code"><small>${english ? "Panel identifier" : "شناسه پنل"}</small><b dir="ltr">${escapeHtml(identified.code)}</b></div><div class="panel-identified-context"><span>${icons.location}</span><div><small>${english ? "Demo site information" : "اطلاعات سایت Demo"}</small><b>${escapeHtml(referenceProject?.name || "")}</b><em>${escapeHtml(referenceProject?.location || "")}</em></div></div></div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-onboarding-back>${english ? "Back" : "بازگشت"}</button><button type="button" class="btn-primary" data-onboarding-next>${english ? "Continue" : "ادامه"}${icons.chevronLeft}</button></div>` : `<div class="settings-modal-head panel-onboarding-heading"><div class="helper-icon">${icons.panel}</div><div><span class="eyebrow">${english ? "FINAL STEP" : "مرحله پایانی"}</span><h3 id="panel-onboarding-title">${english ? "Name your panel" : "نام‌گذاری پنل"}</h3><p>${english ? "Choose a clear name and installation site for daily management." : "یک نام روشن و محل نصب پنل را برای مدیریت روزمره انتخاب کنید."}</p></div></div><div class="panel-onboarding-form panel-onboarding-naming"><label>${english ? "Panel name" : "نام پنل"}<input type="text" data-onboarding-name value="${english ? "First floor panel" : "پنل طبقه اول"} autofocus></label><label>${english ? "Installation site" : "سایت / پروژه"}<select data-onboarding-project>${projectOptions}</select></label><label>${english ? "Installation location (optional)" : "محل نصب (اختیاری)"}<input type="text" data-onboarding-location value="${escapeHtml(referenceProject?.location || "")}" placeholder="${english ? "Building, floor or zone" : "ساختمان، طبقه یا بخش"}"></label></div><div class="settings-modal-actions"><button type="button" class="btn-secondary" data-onboarding-back>${english ? "Back" : "بازگشت"}</button><button type="button" class="btn-primary" data-onboarding-save>${icons.check}${english ? "Save panel" : "ذخیره پنل"}</button></div>`}`;
+    backdrop.querySelector("[data-onboarding-code]")?.focus();
+    backdrop.querySelector("[data-onboarding-scan]")?.addEventListener("click", () => { const input = backdrop.querySelector("[data-onboarding-code]"); input.value = defaultCode; input.classList.add("is-scanned"); showToast(english ? "Demo QR code recognized." : "QR Code به‌صورت Demo شناسایی شد.", "info"); });
+    backdrop.querySelector("[data-onboarding-cancel]")?.addEventListener("click", closeSettingsModal);
+    backdrop.querySelector("[data-onboarding-back]")?.addEventListener("click", () => { step = Math.max(1, step - 1); renderStep(); });
+    backdrop.querySelector("[data-onboarding-next]")?.addEventListener("click", () => {
+      if (step === 1) {
+        const code = backdrop.querySelector("[data-onboarding-code]")?.value.trim();
+        if (!code) { showToast(english ? "Enter the panel identifier first." : "ابتدا شناسه پنل را وارد کنید.", "info"); return; }
+        const duplicate = getPanelDirectoryEntries().some((entry) => entry.panel.code?.toLowerCase() === code.toLowerCase());
+        if (duplicate) { showToast(english ? "This panel identifier is already in use." : "این شناسه پنل قبلاً ثبت شده است.", "info"); return; }
+        identified = { code, gatewayId: "GW-A83F21", firmware: "v1.4.2" };
+      }
+      step = Math.min(3, step + 1);
+      renderStep();
+    });
+    backdrop.querySelector("[data-onboarding-save]")?.addEventListener("click", async () => {
+      const name = backdrop.querySelector("[data-onboarding-name]")?.value.trim();
+      const projectId = backdrop.querySelector("[data-onboarding-project]")?.value;
+      const location = backdrop.querySelector("[data-onboarding-location]")?.value.trim();
+      const project = projects.find((item) => item.id === projectId) || referenceProject;
+      if (!name || !project) { showToast(english ? "Enter a panel name first." : "ابتدا نام پنل را وارد کنید.", "info"); return; }
+      const panel = { id: createEntityId("panel"), name, code: identified.code, status: "آفلاین", connectionState: "unconfigured", alarms: 0, gatewayId: identified.gatewayId, firmware: identified.firmware, location: location || project.location };
+      project.panels.push(panel);
+      state.selectedProjectId = project.id;
+      state.selectedPanelId = panel.id;
+      state.panelDirectoryPanelId = panel.id;
+      state.panelDirectoryTab = "status";
+      state.view = "panel-detail";
+      closeSettingsModal();
+      await saveApplicationStateNow();
+      renderApp();
+      showToast(english ? `${name} was added to your panels.` : `پنل «${name}» به پنل‌های شما اضافه شد.`);
+    });
+  };
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) closeSettingsModal(); });
+  renderStep();
+}
+
 function renderWorkspace(project) {
+  if (state.selectedSettingId === "language") {
+    const english = state.language === "en";
+    return `<section class="standalone-setting-page"><div class="standalone-setting-heading"><span class="standalone-setting-icon">${icons.settings}</span><div><span class="eyebrow">${english ? "GENERAL SETTINGS" : "تنظیمات عمومی"}</span><h2>${english ? "Interface language" : "زبان رابط کاربری"}</h2><p>${english ? "This setting is independent from projects and panels." : "این بخش مستقل از پروژه‌ها و پنل‌هاست."}</p></div></div><main class="standalone-setting-content">${renderLanguageSetting()}</main></section>`;
+  }
   const panel = findPanel() || { id: "", name: state.language === "en" ? "No panel selected" : "پنلی انتخاب نشده", code: "—", status: "آفلاین", alarms: 0 };
   const collapsed = settingsMenuCollapsed();
   const shellClasses = ["workspace-shell", collapsed ? "" : "settings-menu-open"].filter(Boolean).join(" ");
@@ -2112,17 +2241,21 @@ function renderApp() {
     state.selectedPanelId = null;
     state.connectedPanelId = null;
   }
+  const isPanelDirectory = state.view === "panels";
+  const isStandaloneLanguage = state.view === "workspace" && state.selectedSettingId === "language";
+  const isPanelDetail = state.view === "panel-detail";
   const isWorkspace = state.view === "workspace" && Boolean(project);
   const isProjectImages = state.view === "project-images";
-  document.querySelector("#topbar-title").textContent = isWorkspace ? project.name : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها");
-  document.querySelector("#topbar-subtitle").textContent = isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما");
+  const detailEntry = isPanelDetail ? findPanelDirectoryEntry() : null;
+  document.querySelector("#topbar-title").textContent = isStandaloneLanguage ? "زبان رابط کاربری" : (isWorkspace ? project.name : (isPanelDetail ? detailEntry?.panel.name || "مدیریت پنل" : (isPanelDirectory ? "پنل‌های من" : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها"))));
+  document.querySelector("#topbar-subtitle").textContent = isStandaloneLanguage ? "تنظیمات مستقل نرم‌افزار" : (isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isPanelDetail ? `${detailEntry?.project.name || ""} · مدیریت وضعیت و رویدادها` : (isPanelDirectory ? "مدیریت پنل‌ها بر اساس سایت و محل نصب" : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما"))));
   const hasSettingShortcut = state.view === "workspace" && [...document.querySelectorAll("[data-nav-setting]")].some((item) => item.dataset.navSetting === state.selectedSettingId);
   document.querySelectorAll("[data-nav-view]").forEach((item) => {
     const active = item.dataset.navView === state.view && (item.dataset.navSetting ? item.dataset.navSetting === state.selectedSettingId : !hasSettingShortcut);
     item.classList.toggle("active", active);
   });
-  content.innerHTML = isWorkspace ? renderWorkspace(project) : state.view === "project-images" ? renderProjectImagesPageV2() : renderProjectsPage();
-  if (!isWorkspace) {
+  content.innerHTML = isStandaloneLanguage ? renderWorkspace(project) : isWorkspace ? renderWorkspace(project) : isPanelDirectory ? renderPanelsPage() : isPanelDetail ? renderPanelDetailPage() : state.view === "project-images" ? renderProjectImagesPageV2() : renderProjectsPage();
+  if (!isWorkspace && !isStandaloneLanguage && !isPanelDirectory && !isPanelDetail) {
     hydrateProjectCardImages(content);
     hydrateProjectGalleryImages(content);
   }
@@ -2908,6 +3041,34 @@ function bindViewEvents() {
   }
   content.querySelectorAll("[data-project-create]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => showProjectDialog())));
   content.querySelectorAll("[data-panel-create]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => showPanelDialog())));
+  content.querySelectorAll("[data-panel-directory-add]").forEach((button) => button.addEventListener("click", () => requestSettingsTransition(() => showPanelOnboarding())));
+  content.querySelectorAll("[data-panel-directory-open]").forEach((button) => button.addEventListener("click", () => {
+    state.panelDirectoryPanelId = button.dataset.panelId;
+    state.panelDirectoryTab = "status";
+    state.selectedProjectId = button.dataset.projectId;
+    state.selectedPanelId = button.dataset.panelId;
+    state.view = "panel-detail";
+    renderApp();
+  }));
+  content.querySelectorAll("[data-panels-back]").forEach((button) => button.addEventListener("click", () => {
+    state.view = "panels";
+    renderApp();
+  }));
+  content.querySelectorAll("[data-panel-detail-tab]").forEach((button) => button.addEventListener("click", () => {
+    state.panelDirectoryTab = button.dataset.panelDetailTab;
+    renderApp();
+  }));
+  content.querySelectorAll("[data-panel-detail-settings]").forEach((button) => button.addEventListener("click", () => {
+    const entry = findPanelDirectoryEntry();
+    if (!entry) return;
+    state.selectedProjectId = entry.project.id;
+    state.selectedPanelId = entry.panel.id;
+    state.selectedSettingId = "date-time";
+    state.view = "workspace";
+    state.panelMenuOpen = false;
+    state.settingsTreeCollapsed = true;
+    renderApp();
+  }));
   content.querySelectorAll("[data-project-images-open], [data-project-images-open-button]").forEach((control) => control.addEventListener("click", (event) => {
     event.stopPropagation();
     state.projectImagesProjectId = control.dataset.projectImageProjectId;
@@ -3308,6 +3469,7 @@ function bindEvents() {
       state.view = button.dataset.navView;
       if (button.dataset.navSetting) state.selectedSettingId = button.dataset.navSetting;
       if (state.view === "project-images") state.projectImagesProjectId = null;
+      if (state.view === "panels") state.panelDirectoryPanelId = null;
       if (state.view === "workspace" && !state.selectedProjectId) {
         const firstProject = projects[0];
         if (!firstProject) {
