@@ -1,5 +1,4 @@
 import "./style.css";
-import { mountFloorPlanModule } from "./floor-plan.js";
 
 let activeLanguage = localStorage.getItem("fire-panel-language") || "fa";
 const faDigits = (value) => String(value).replace(/\d/g, (digit) => activeLanguage === "en" ? digit : "۰۱۲۳۴۵۶۷۸۹"[digit]);
@@ -848,8 +847,8 @@ function renderShell() {
           <button class="nav-item" type="button" data-nav-view="workspace">${icons.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
           <button class="nav-item" type="button" data-nav-view="talk">${icons.message}<span>صحبت</span></button>
           <p class="nav-caption nav-space">مدیریت</p>
-          <p class="nav-caption nav-space">Device Settings</p>
-          <button class="nav-item nav-subitem" type="button" data-nav-view="floor-plans"><span class="floor-plan-nav-icon" aria-hidden="true">⌖</span><span>Floor Plan Layout</span></button>
+          <p class="nav-caption nav-space" id="floor-plan-nav-caption">${state.language === "en" ? "Device Settings" : "تنظیمات دیوایس‌ها"}</p>
+          <button class="nav-item nav-subitem" type="button" data-nav-view="floor-plans"><span class="floor-plan-nav-icon" aria-hidden="true">⌖</span><span id="floor-plan-nav-label">${state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان دیوایس‌ها"}</span></button>
           <button class="nav-item" type="button" data-nav-view="panels">${icons.panel}<span>پنل‌های من</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="saved-settings">${icons.report}<span>تنظیمات ذخیره شده</span></button>
@@ -2544,6 +2543,10 @@ function renderApp() {
   const content = document.querySelector("#content-root");
   if (!content) return;
   activeLanguage = state.language;
+  const floorPlanCaption = document.querySelector("#floor-plan-nav-caption");
+  const floorPlanNavLabel = document.querySelector("#floor-plan-nav-label");
+  if (floorPlanCaption) floorPlanCaption.textContent = state.language === "en" ? "Device Settings" : "تنظیمات دیوایس‌ها";
+  if (floorPlanNavLabel) floorPlanNavLabel.textContent = state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان دیوایس‌ها";
   if (state.view === "workspace" && !project) {
     state.view = "projects";
     state.selectedProjectId = null;
@@ -2559,9 +2562,9 @@ function renderApp() {
   const isFloorPlan = state.view === "floor-plans";
   const detailEntry = isPanelDetail ? findPanelDirectoryEntry() : null;
   document.querySelector("#topbar-title").textContent = isTalk ? (state.language === "en" ? "Talk" : "صحبت") : (isStandaloneLanguage ? "زبان رابط کاربری" : (isWorkspace ? project.name : (isPanelDetail ? detailEntry?.panel.name || "مدیریت پنل" : (isPanelDirectory ? "پنل‌های من" : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها")))));
-  if (isFloorPlan) document.querySelector("#topbar-title").textContent = "Floor Plan Layout";
+  if (isFloorPlan) document.querySelector("#topbar-title").textContent = state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان دیوایس‌ها";
   document.querySelector("#topbar-subtitle").textContent = isTalk ? (state.language === "en" ? "Experimental ESP8266 command console" : "کنسول آزمایشی ارتباط با ESP8266") : (isStandaloneLanguage ? "تنظیمات مستقل نرم‌افزار" : (isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isPanelDetail ? `${detailEntry?.project.name || ""} · مدیریت وضعیت و رویدادها` : (isPanelDirectory ? "مدیریت پنل‌ها بر اساس سایت و محل نصب" : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما")))));
-  if (isFloorPlan) document.querySelector("#topbar-subtitle").textContent = "Place fire alarm devices on a PDF floor plan and export a vector-stamped copy.";
+  if (isFloorPlan) document.querySelector("#topbar-subtitle").textContent = state.language === "en" ? "Place fire alarm devices on a PDF floor plan and export a vector-stamped copy." : "دیوایس‌های اعلام حریق را روی نقشه PDF قرار دهید و نسخهٔ برداری آن را خروجی بگیرید.";
   const hasSettingShortcut = state.view === "workspace" && [...document.querySelectorAll("[data-nav-setting]")].some((item) => item.dataset.navSetting === state.selectedSettingId);
   document.querySelectorAll("[data-nav-view]").forEach((item) => {
     const active = item.dataset.navView === state.view && (item.dataset.navSetting ? item.dataset.navSetting === state.selectedSettingId : !hasSettingShortcut);
@@ -2574,7 +2577,22 @@ function renderApp() {
   }
   restoreGenericSettingControls();
   bindViewEvents();
-  if (isFloorPlan) void mountFloorPlanModule(document.querySelector("#floor-plan-module"), state.loopCards);
+  if (isFloorPlan) {
+    const panelDevices = Object.fromEntries(projects.flatMap((item) => item.panels.map((panel) => {
+      const saved = [...(state.savedSettingFiles || [])].filter((file) => file.panelId === panel.id && Array.isArray(file.snapshot?.loopCards)).sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
+      const activeDevices = panel.id === state.selectedPanelId && Array.isArray(state.loopCards) ? state.loopCards : null;
+      const activeHasDevices = activeDevices?.some((card) => Array.isArray(card.devices) && card.devices.length > 0);
+      const savedDevices = saved?.snapshot?.loopCards;
+      // Prefer the live registry for the active panel, but fall back to its saved
+      // snapshot when the live settings have not loaded any devices yet.
+      const devices = activeHasDevices ? activeDevices : savedDevices || activeDevices || [];
+      return [panel.id, devices];
+    })));
+    const selectedPanelProject = projects.find((item) => item.panels.some((panel) => panel.id === state.selectedPanelId));
+    const initialProjectId = selectedPanelProject?.id || projects.find((item) => item.id === state.selectedProjectId)?.id || "";
+    const initialPanelId = selectedPanelProject ? state.selectedPanelId : "";
+    void import("./floor-plan.js").then(({ mountFloorPlanModule }) => mountFloorPlanModule(document.querySelector("#floor-plan-module"), { projects, panelDevices, initialProjectId, initialPanelId, language: state.language })).catch((error) => showToast(error.message, "error"));
+  }
   if (isTalk) void bindTalkConsole(content);
   else if (talkRefreshTimer) { clearInterval(talkRefreshTimer); talkRefreshTimer = null; }
   document.documentElement.lang = state.language === "en" ? "en" : "fa";

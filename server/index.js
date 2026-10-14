@@ -545,32 +545,41 @@ app.post("/api/esp/v1/commands/:commandId/result", requireHttps, authenticateDev
 app.post("/api/floor-plans", floorPlanUpload.single("pdf"), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ ok: false, error: "A PDF file is required" });
+  const projectId = String(req.body?.projectId || "").trim().slice(0, 120);
+  if (!projectId) { unlinkSync(file.path); return res.status(400).json({ ok: false, error: "Select a project before uploading a floor plan" }); }
   try {
     const bytes = readFileSync(file.path);
     if (bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
       unlinkSync(file.path);
       return res.status(400).json({ ok: false, error: "The uploaded file is not a valid PDF" });
     }
-    const document = await PDFDocument.load(bytes, { ignoreEncryption: false });
+    let document;
+    try {
+      document = await PDFDocument.load(bytes, { ignoreEncryption: false });
+    } catch (error) {
+      unlinkSync(file.path);
+      console.warn("Floor plan PDF could not be parsed:", error.message);
+      return res.status(400).json({ ok: false, error: "The uploaded file is not a readable PDF" });
+    }
     const pages = document.getPages();
     if (!pages.length) throw new Error("PDF has no pages");
     const { width, height } = pages[0].getSize();
     const id = randomUUID();
     const name = (typeof req.body?.name === "string" ? req.body.name.trim() : "").slice(0, 160) || path.basename(file.originalname, path.extname(file.originalname)).slice(0, 160) || "Floor plan";
     await ensureFloorPlanSchema();
-    await pool.query("INSERT INTO floor_plans (id,name,pdf_path,page_count,width,height) VALUES ($1,$2,$3,$4,$5,$6)", [id, name, file.path, pages.length, width, height]);
-    return res.status(201).json({ ok: true, plan: { id, name, pageCount: pages.length, width, height } });
+    await pool.query("INSERT INTO floor_plans (id,name,pdf_path,page_count,width,height,project_id) VALUES ($1,$2,$3,$4,$5,$6,$7)", [id, name, file.path, pages.length, width, height, projectId]);
+    return res.status(201).json({ ok: true, plan: { id, name, projectId, pageCount: pages.length, width, height } });
   } catch (error) {
     if (existsSync(file.path)) unlinkSync(file.path);
     console.error("Floor plan upload error:", error);
-    return res.status(400).json({ ok: false, error: "Could not read or save this PDF" });
+    return res.status(503).json({ ok: false, error: "Floor plan service temporarily unavailable" });
   }
 });
 
 app.get("/api/floor-plans", async (_req, res) => {
   try {
     await ensureFloorPlanSchema();
-    const result = await pool.query("SELECT id,name,page_count AS \"pageCount\",width,height,created_at AS \"createdAt\" FROM floor_plans ORDER BY created_at DESC");
+    const result = await pool.query("SELECT id,name,project_id AS \"projectId\",page_count AS \"pageCount\",width,height,created_at AS \"createdAt\" FROM floor_plans ORDER BY created_at DESC");
     return res.json({ ok: true, plans: result.rows });
   } catch (error) {
     console.error("Floor plan list error:", error);
@@ -592,6 +601,47 @@ app.get("/api/floor-plans/:id/file", async (req, res) => {
   }
 });
 
+// A migrated floor plan can be assigned once; subsequent project changes are rejected.
+app.post("/api/floor-plans/:id/project", async (req, res) => {
+  const projectId = String(req.body?.projectId || "").trim().slice(0, 120);
+  if (!projectId) return res.status(400).json({ ok: false, error: "A project is required" });
+  try {
+    await ensureFloorPlanSchema();
+    const result = await pool.query("UPDATE floor_plans SET project_id=$2 WHERE id=$1 AND project_id IS NULL RETURNING project_id AS \"projectId\"", [req.params.id, projectId]);
+    if (result.rowCount) return res.json({ ok: true, projectId: result.rows[0].projectId });
+    const existing = await pool.query("SELECT project_id AS \"projectId\" FROM floor_plans WHERE id=$1", [req.params.id]);
+    if (!existing.rowCount) return res.sendStatus(404);
+    if (existing.rows[0].projectId !== projectId) return res.status(409).json({ ok: false, error: "The project assigned to a floor plan cannot be changed" });
+    return res.json({ ok: true, projectId });
+  } catch (error) {
+    console.error("Floor plan project assignment error:", error);
+    return res.status(503).json({ ok: false, error: "Floor plan service temporarily unavailable" });
+  }
+});
+
+// Remove a floor plan and its cascaded device layout, then delete its stored PDF.
+app.delete("/api/floor-plans/:id", async (req, res) => {
+  try {
+    await ensureFloorPlanSchema();
+    const existing = await pool.query("SELECT pdf_path FROM floor_plans WHERE id=$1", [req.params.id]);
+    if (!existing.rowCount) return res.sendStatus(404);
+
+    const pdfPath = path.resolve(existing.rows[0].pdf_path);
+    const planRoot = path.resolve(floorPlanUploadDirectory);
+    const relativePath = path.relative(planRoot, pdfPath);
+    const isManagedUpload = relativePath && relativePath !== ".." && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath);
+    if (!isManagedUpload) return res.status(400).json({ ok: false, error: "The stored PDF is outside the floor plan upload directory" });
+
+    const deleted = await pool.query("DELETE FROM floor_plans WHERE id=$1 RETURNING id", [req.params.id]);
+    if (!deleted.rowCount) return res.sendStatus(404);
+    if (existsSync(pdfPath)) unlinkSync(pdfPath);
+    return res.json({ ok: true, id: deleted.rows[0].id });
+  } catch (error) {
+    console.error("Floor plan delete error:", error);
+    return res.status(503).json({ ok: false, error: "Floor plan service temporarily unavailable" });
+  }
+});
+
 app.get("/api/floor-plans/:id/layout", async (req, res) => {
   const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
   try {
@@ -599,7 +649,7 @@ app.get("/api/floor-plans/:id/layout", async (req, res) => {
     const plan = await pool.query("SELECT id FROM floor_plans WHERE id=$1", [req.params.id]);
     if (!plan.rowCount) return res.sendStatus(404);
     const result = await pool.query(
-      `SELECT id,device_id AS "deviceId",device_type AS "deviceType",loop_no AS loop,address,zone,label,norm_x AS "normX",norm_y AS "normY",rotation
+      `SELECT id,device_id AS "deviceId",panel_id AS "panelId",device_type AS "deviceType",loop_no AS loop,address,zone,label,norm_x AS "normX",norm_y AS "normY",rotation
        FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2 ORDER BY id`, [req.params.id, page]);
     return res.json({ ok: true, devices: result.rows });
   } catch (error) {
@@ -621,23 +671,30 @@ app.post("/api/floor-plans/:id/layout", async (req, res) => {
     if (!allowedTypes.has(device?.deviceType) || !Number.isFinite(normX) || !Number.isFinite(normY) || normX < 0 || normX > 1 || normY < 0 || normY > 1 || !Number.isInteger(rotation)) {
       return res.status(400).json({ ok: false, error: "Invalid device mapping" });
     }
-    normalized.push([randomUUID(), req.params.id, page, String(device.deviceId || "").slice(0, 120) || null, device.deviceType,
-      String(device.loop || "").slice(0, 40), String(device.address || "").slice(0, 80), String(device.zone || "").slice(0, 80), String(device.label || "").slice(0, 160), normX, normY, rotation % 360]);
+    normalized.push({
+      projectId: String(device.projectId || "").slice(0, 120),
+      values: [randomUUID(), req.params.id, page, String(device.deviceId || "").slice(0, 120) || null, String(device.panelId || "").slice(0, 120) || null, device.deviceType,
+        String(device.loop || "").slice(0, 40), String(device.address || "").slice(0, 80), String(device.zone || "").slice(0, 80), String(device.label || "").slice(0, 160), normX, normY, rotation % 360],
+    });
   }
   const client = await pool.connect().catch(() => null);
   if (!client) return res.status(503).json({ ok: false, error: "Floor plan service temporarily unavailable" });
   try {
     await ensureFloorPlanSchema();
     await client.query("BEGIN");
-    const plan = await client.query("SELECT id,page_count FROM floor_plans WHERE id=$1 FOR UPDATE", [req.params.id]);
+    const plan = await client.query("SELECT id,page_count,project_id FROM floor_plans WHERE id=$1 FOR UPDATE", [req.params.id]);
     if (!plan.rowCount || page > plan.rows[0].page_count) {
       await client.query("ROLLBACK");
       return res.sendStatus(plan.rowCount ? 400 : 404);
     }
+    if (normalized.some((item) => item.projectId !== String(plan.rows[0].project_id || ""))) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ ok: false, error: "A floor plan can only contain devices from its assigned project" });
+    }
     await client.query("DELETE FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2", [req.params.id, page]);
     for (const item of normalized) await client.query(
-      `INSERT INTO floor_plan_devices (id,floor_plan_id,page_number,device_id,device_type,loop_no,address,zone,label,norm_x,norm_y,rotation)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, item);
+      `INSERT INTO floor_plan_devices (id,floor_plan_id,page_number,device_id,panel_id,device_type,loop_no,address,zone,label,norm_x,norm_y,rotation)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, item.values);
     await client.query("COMMIT");
     return res.json({ ok: true, count: normalized.length });
   } catch (error) {
@@ -661,23 +718,44 @@ app.get("/api/floor-plans/:id/export", async (req, res) => {
     const rows = await pool.query("SELECT device_type AS type,address,zone,label,norm_x AS x,norm_y AS y,rotation FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2", [req.params.id, pageNumber]);
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const ink = rgb(0.02, 0.15, 0.30), white = rgb(1, 1, 1);
+    const drawCenteredGlyph = (text, centerX, centerY, rotation) => {
+      // Size and rotate the glyph around the symbol center so it stays inside its frame.
+      const maxTextWidth = 18;
+      const size = Math.min(7, maxTextWidth / Math.max(font.widthOfTextAtSize(text, 7), 0.1) * 7);
+      const textWidth = font.widthOfTextAtSize(text, size);
+      const textHeight = font.heightAtSize(size);
+      const radians = rotation * Math.PI / 180;
+      const cosine = Math.cos(radians), sine = Math.sin(radians);
+      const originX = centerX - cosine * textWidth / 2 + sine * textHeight / 2;
+      const originY = centerY - sine * textWidth / 2 - cosine * textHeight / 2;
+      page.drawText(text, { x: originX, y: originY, size, font, color: ink, rotate: degrees(rotation) });
+    };
     for (const device of rows.rows) {
       const x = device.x * width, y = height - device.y * height;
       // Draw each marker from PDF vector primitives so the original plan stays vector-quality.
       if (["SD", "HD", "MS"].includes(device.type)) {
         page.drawCircle({ x, y, size: 9, color: white, borderColor: ink, borderWidth: 1.4, rotate: degrees(device.rotation) });
-        page.drawLine({ start: { x: x - 4, y }, end: { x: x + 4, y }, thickness: 0.8, color: ink });
-        page.drawLine({ start: { x, y: y - 4 }, end: { x, y: y + 4 }, thickness: 0.8, color: ink });
+        const radians = device.rotation * Math.PI / 180;
+        const dx = Math.cos(radians) * 4, dy = Math.sin(radians) * 4;
+        page.drawLine({ start: { x: x - dx, y: y - dy }, end: { x: x + dx, y: y + dy }, thickness: 0.8, color: ink });
+        page.drawLine({ start: { x: x + dy, y: y - dx }, end: { x: x - dy, y: y + dx }, thickness: 0.8, color: ink });
         if (device.type === "MS") page.drawCircle({ x, y, size: 2, color: ink });
       } else {
-        page.drawRectangle({ x: x - 8, y: y - 6, width: 16, height: 12, color: white, borderColor: ink, borderWidth: 1.4, rotate: degrees(device.rotation) });
-        page.drawText(device.type === "MCP" ? "M" : device.type === "FACP" ? "P" : device.type === "MOD" ? "I" : "S", { x: x - 3, y: y - 3, size: 7, font, color: ink });
+        const radians = device.rotation * Math.PI / 180;
+        const cosine = Math.cos(radians), sine = Math.sin(radians);
+        // pdf-lib rotates rectangles around their lower-left origin. Move that
+        // origin so the rotated rectangle remains centered on the saved point.
+        const boxX = x - cosine * 12 + sine * 8;
+        const boxY = y - sine * 12 - cosine * 8;
+        page.drawRectangle({ x: boxX, y: boxY, width: 24, height: 16, color: white, borderColor: ink, borderWidth: 1.4, rotate: degrees(device.rotation) });
+        const glyph = device.type === "SND/FL" ? "S/F" : device.type;
+        drawCenteredGlyph(glyph, x, y, device.rotation);
       }
       const tag = String(device.address || device.label || device.type).replace(/[^\x20-\x7E]/g, "").slice(0, 40);
-      if (tag) page.drawText(tag, { x: x + 10, y: y - 3, size: 7, font, color: ink });
+      if (tag) page.drawText(tag, { x: x + 15, y: y - 3, size: 7, font, color: ink });
       if (device.zone) {
         const zone = String(device.zone).replace(/[^\x20-\x7E]/g, "").slice(0, 30);
-        if (zone) page.drawText(zone, { x: x + 10, y: y - 11, size: 6, font, color: ink });
+        if (zone) page.drawText(zone, { x: x + 15, y: y - 11, size: 6, font, color: ink });
       }
     }
     const bytes = await pdf.save();
