@@ -1,7 +1,7 @@
 server {
   listen 80;
   listen [::]:80;
-  server_name your-domain.ir www.your-domain.ir;
+  server_name ariaksoft.ir;
 
   location / {
     proxy_pass http://127.0.0.1:3001;

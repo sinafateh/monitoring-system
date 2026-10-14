@@ -1,4 +1,5 @@
 import "./style.css";
+import { mountFloorPlanModule } from "./floor-plan.js";
 
 let activeLanguage = localStorage.getItem("fire-panel-language") || "fa";
 const faDigits = (value) => String(value).replace(/\d/g, (digit) => activeLanguage === "en" ? digit : "۰۱۲۳۴۵۶۷۸۹"[digit]);
@@ -15,6 +16,7 @@ const icons = {
   panel: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h2m4 0h2M8 15h2m4 0h2M8 18h8"/></svg>`,
   project: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg>`,
   image: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3 2.5-2 5 5"/></svg>`,
+  message: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-9.5A7.5 7.5 0 0 1 10.5 4h2A7.5 7.5 0 0 1 20 11.5Z"/><path d="M8 11h8M8 14h5"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>`,
   report: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="m7 15 3-4 3 2 5-7"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.3a2 2 0 0 1-4 0v-.2A2 2 0 0 0 5.8 18l-.1.1a2 2 0 1 1-2.8-2.8L3 15.2A2 2 0 0 0 1.6 12h-.1a2 2 0 0 1 0-4h.2A2 2 0 0 0 3 4.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 9.2.5h.2a2 2 0 0 1 4 0v.2a2 2 0 0 0 3.4 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 21 8h.2a2 2 0 0 1 0 4H21a2 2 0 0 0-1.6 3Z"/></svg>`,
@@ -37,6 +39,8 @@ const icons = {
   qr: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM18 18h2v2h-2zM14 18h2v2h-2z"/></svg>`,
   location: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>`,
   info: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>`,
+  fire: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4.4 0 7-3.1 7-7.1 0-3.2-1.8-5.6-4.2-8.9-.3 2.3-1.4 3.8-2.5 4.7-.3-3.2-2-5.8-4.8-8.7.1 3.7-1.2 5.6-2.2 7.5A10 10 0 0 0 4 15c0 4.1 3 7 8 7Z"/><path d="M12 22c2 0 3.4-1.5 3.4-3.5 0-1.4-.8-2.6-2.3-4.3-.2 1.4-.8 2.1-1.4 2.6-.3-1.4-1-2.4-2-3.4-.1 1.8-1.1 2.7-1.1 4.7 0 2.2 1.3 3.9 3.4 3.9Z"/></svg>`,
+  alertTriangle: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 4.3 2.9 17.1A2 2 0 0 0 4.6 20h14.8a2 2 0 0 0 1.7-2.9L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 3h.01"/></svg>`,
   shield: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>`,
   alert: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 17H3L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>`,
   arrowUpRight: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>`,
@@ -595,6 +599,8 @@ const translations = {
   "فضای کاری": "Workspace", "پروژه‌ها": "Projects", "فضای مانیتورینگ": "Monitoring workspace", "پنل‌های من": "My panels", "رویدادها": "Events", "گزارش‌ها": "Reports", "مدیریت پنل": "Panel management", "حساب نصاب": "Installer account", "دسترسی فعال": "Active access", "پشتیبانی فنی": "Technical support", "همراه شما برای راه‌اندازی": "Here to help with setup", "آماده به کار": "Ready", "بدون اتصال به پنل": "No panel connected", "متصل به پنل": "Connected to panel", "تنظیمات پنل": "Panel settings", "تنظیمات پروژه": "Project settings", "پروژه‌های من": "My projects", "پروژه را انتخاب کنید تا پنل‌ها و تنظیمات آن را مدیریت کنید.": "Select a project to manage its panels and settings.", "پروژه‌ها و پنل‌های تحت مدیریت شما": "Projects and panels under your management", "فضای کاری شما": "Your workspace", "پروژه فعال": "Active projects", "پنل ثبت‌شده": "Registered panels", "نیازمند بررسی": "Needs attention", "پروژه آنلاین": "Online projects", "پروژه": "Project", "پنل": "Panel", "پنل‌های پروژه": "Project panels", "در این پروژه": "in this project", "پنل جدید اضافه کنید": "Add a new panel", "اتصال پنل در نسخه بعدی": "Panel connection is coming next", "راهنمای تنظیمات": "Settings guide", "برای مشاهده هر بخش، گزینه‌ی آن را انتخاب کنید.": "Select an item to view its settings.", "فضای نصاب": "Installer workspace", "پنل‌ها": "Panels", "پیکربندی پنل": "Panel configuration", "پروژه‌های فعال": "Active projects", "خواندن": "Read", "خواندن از پنل": "Read from panel", "ذخیره تنظیمات": "Save settings", "ذخیره تغییرات": "Save changes", "اعمال روی پنل": "Apply to panel", "انصراف": "Cancel", "اتصال": "Connect", "قطع اتصال": "Disconnect", "اتصال پنل برای این پروژه فعال نیست": "Panel is not connected for this project", "مقادیر فعلاً در فرم نگه‌داری می‌شوند و بعد از اتصال قابل ارسال خواهند بود.": "Values stay in this form until the panel connection is established.", "تنظیم تاریخ و ساعت": "Set date and time", "تاریخ پنل": "Panel date", "ساعت پنل": "Panel time", "فرمت ساعت ۲۴ ساعته": "24-hour format", "مقدار انتخاب‌شده": "Selected value", "معادل میلادی": "Gregorian equivalent", "شمسی": "Jalali", "زبان رابط کاربری": "Interface language", "زبان نرم‌افزار": "Application language", "نام پروژه‌ها و پنل‌ها بدون تغییر باقی می‌ماند.": "Project and panel names stay unchanged.", "وضعیت تنظیمات": "Settings status", "آخرین وضعیت همگام‌سازی": "Latest synchronization status", "پنل انتخاب‌شده": "Selected panel", "آخرین همگام‌سازی": "Last synchronization", "هنوز انجام نشده": "Not synchronized yet", "منطقه زمانی": "Time zone", "تهران (UTC+۳:۳۰)": "Tehran (UTC+3:30)", "مراحل بعدی": "Next steps", "امکاناتی که به‌زودی فعال می‌شوند": "Features coming soon", "انتخاب پروژه و پنل": "Select project and panel", "ساختار اولیه آماده است": "Initial structure is ready", "در حال پیاده‌سازی": "In progress", "اتصال و همگام‌سازی": "Connection and synchronization", "در نسخه بعدی": "In the next version", "فعال": "Active", "آماده": "Ready", "پیش‌نویس": "Draft", "آنلاین": "Online", "آفلاین": "Offline", "متصل": "Connected", "هشدار": "Alert", "همه پروژه‌ها": "All projects", "مجتمع اداری": "Office complex", "برج مسکونی": "Residential tower", "کارخانه صنعتی": "Industrial factory", "هتل": "Hotel", "تهران، خیابان ولیعصر": "Tehran, Valiasr Street", "تهران، شهرک غرب": "Tehran, Shahrak-e Gharb", "البرز، شهرک صنعتی": "Alborz, Industrial Town", "مشهد، بلوار سجاد": "Mashhad, Sajjad Boulevard",
 };
 
+translations["صحبت"] = "Talk";
+
 Object.assign(translations, {
   "تنظیمات سیستم": "System settings",
   "مدیریت تنظیمات عمومی و ارتباط با پنل": "Manage general settings and panel connection",
@@ -840,7 +846,10 @@ function renderShell() {
           <button class="nav-item active" type="button" data-nav-view="projects">${icons.project}<span>پروژه‌ها</span><em>۴</em></button>
           <button class="nav-item" type="button" data-nav-view="project-images">${icons.image}<span>عکس‌های پروژه</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace">${icons.dashboard}<span>فضای مانیتورینگ</span><i class="live-dot"></i></button>
+          <button class="nav-item" type="button" data-nav-view="talk">${icons.message}<span>صحبت</span></button>
           <p class="nav-caption nav-space">مدیریت</p>
+          <p class="nav-caption nav-space">Device Settings</p>
+          <button class="nav-item nav-subitem" type="button" data-nav-view="floor-plans"><span class="floor-plan-nav-icon" aria-hidden="true">⌖</span><span>Floor Plan Layout</span></button>
           <button class="nav-item" type="button" data-nav-view="panels">${icons.panel}<span>پنل‌های من</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="saved-settings">${icons.report}<span>تنظیمات ذخیره شده</span></button>
@@ -914,6 +923,306 @@ function renderProjectImagesPageV2() {
     }).join("") + "</section>";
 }
 
+let talkSelectedDeviceId = null;
+let talkRefreshTimer = null;
+let talkTrackedCommand = null;
+let talkPendingMessages = new Map();
+let talkSeenDeviceMessages = new Map();
+
+async function talkApi(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options,
+    headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) },
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(result.error || `Request failed (${response.status})`), { status: response.status });
+  return result;
+}
+
+function talkLoginMarkup(message = "") {
+  const english = state.language === "en";
+  return `<div class="talk-login-card"><div class="talk-login-icon">${icons.settings}</div><h3>${english ? "Administrator login" : "ورود مدیر"}</h3><p>${english ? "Enter the ESP administrator password configured on the server." : "رمز مدیر ESP را که در تنظیمات سرور قرار داده شده وارد کنید."}</p><form data-talk-login><label>${english ? "Administrator password" : "رمز مدیر"}<input type="password" name="password" autocomplete="current-password" required minlength="24"></label><button class="btn-primary" type="submit">${english ? "Sign in" : "ورود"}</button></form></div>`;
+}
+
+function talkFormatTime(value) {
+  if (!value) return state.language === "en" ? "Never" : "هرگز";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(state.language === "en" ? "en-US" : "fa-IR");
+}
+
+function talkDeviceStatus(device) {
+  const english = state.language === "en";
+  return device.online ? (english ? "Online" : "آنلاین") : (english ? "Offline" : "آفلاین");
+}
+
+function talkRenderHistory(target, commands) {
+  if (!target) return;
+  const english = state.language === "en";
+  const statusLabels = english
+    ? { pending: "Queued", claimed: "Running", completed: "Replied", failed: "Failed", expired: "Expired" }
+    : { pending: "در صف", claimed: "در حال اجرا", completed: "پاسخ دریافت شد", failed: "ناموفق", expired: "منقضی" };
+  if (!commands.length) {
+    target.innerHTML = `<div class="talk-history-empty">${english ? "No commands yet." : "هنوز فرمانی ثبت نشده است."}</div>`;
+    return;
+  }
+  target.innerHTML = commands.map((item) => `<article class="talk-history-item"><header><code>${escapeHtml(item.command)}</code><span class="talk-command-state ${escapeHtml(item.status)}">${escapeHtml(statusLabels[item.status] || item.status)}</span></header><small>${escapeHtml(talkFormatTime(item.createdAt))}</small>${item.response ? `<pre>${escapeHtml(item.response)}</pre>` : ""}${item.error ? `<p class="talk-command-error">${escapeHtml(item.error)}</p>` : ""}</article>`).join("");
+}
+
+function talkRenderAuthenticated(container, devices, pairingCode = "") {
+  const english = state.language === "en";
+  const selected = devices.find((device) => device.deviceId === talkSelectedDeviceId) || devices[0] || null;
+  talkSelectedDeviceId = selected?.deviceId || null;
+  const projectOptions = projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join("");
+  const deviceCards = devices.map((device) => `<article class="talk-device-card ${device.deviceId === selected?.deviceId ? "selected" : ""}" data-talk-device-card="${escapeHtml(device.deviceId)}"><button type="button" class="talk-device-select" data-talk-select="${escapeHtml(device.deviceId)}"><span class="talk-device-dot ${device.online ? "online" : ""}"></span><span class="talk-device-name"><b>${escapeHtml(device.name || device.deviceId)}</b><small dir="ltr">${escapeHtml(device.deviceId)}</small></span><span class="talk-device-status ${device.online ? "online" : ""}" data-talk-device-status="${escapeHtml(device.deviceId)}">${talkDeviceStatus(device)}</span></button><button type="button" class="talk-device-revoke" data-talk-revoke="${escapeHtml(device.deviceId)}">${english ? "Revoke" : "لغو دسترسی"}</button></article>`).join("");
+  const selectedProject = selected?.projectId ? projects.find((project) => project.id === selected.projectId)?.name : "";
+  container.innerHTML = `<div class="talk-authenticated" data-talk-authorized><div class="talk-toolbar"><div><b>${english ? "ESP devices" : "دستگاه‌های ESP"}</b><small>${english ? "Device credentials are private and never shown again after enrollment." : "اعتبارنامهٔ دستگاه خصوصی است و بعد از ثبت دوباره نمایش داده نمی‌شود."}</small></div><button type="button" class="talk-logout" data-talk-logout>${english ? "Sign out" : "خروج"}</button></div><div class="talk-pair-card"><form data-talk-pair><label>${english ? "Device name" : "نام دستگاه"}<input name="name" maxlength="100" placeholder="${english ? "e.g. Boiler room" : "مثلاً موتورخانه"}" required></label><label>${english ? "Project" : "پروژه"}<select name="projectId"><option value="">${english ? "No project" : "بدون پروژه"}</option>${projectOptions}</select></label><button class="btn-primary" type="submit">${english ? "Create one-time pairing code" : "ساخت کد ثبت یک‌بارمصرف"}</button></form>${pairingCode ? `<div class="talk-pair-code"><b>${english ? "Copy this code into the ESP provisioning settings. It expires in 10 minutes and works once." : "این کد را در تنظیمات پروویژن ESP قرار دهید. کد پس از ۱۰ دقیقه منقضی می‌شود و فقط یک‌بار قابل‌استفاده است."}</b><code dir="ltr">${escapeHtml(pairingCode)}</code><button type="button" data-talk-copy>${english ? "Copy code" : "کپی کد"}</button></div>` : ""}</div><div class="talk-device-layout"><section class="talk-device-list"><h3>${english ? "Registered devices" : "دستگاه‌های ثبت‌شده"}</h3>${devices.length ? deviceCards : `<div class="talk-no-devices">${icons.wifi}<b>${english ? "No ESP devices yet" : "هنوز ESP ثبت نشده است"}</b><p>${english ? "Create a pairing code, then provision the device with the code and this server's HTTPS address." : "یک کد ثبت بسازید و دستگاه را با آن و نشانی HTTPS همین سرور پروویژن کنید."}</p></div>`}</section><section class="talk-device-console">${selected ? `<header class="talk-selected-device"><div><small>${english ? "Selected device" : "دستگاه انتخاب‌شده"}</small><b>${escapeHtml(selected.name || selected.deviceId)}</b><span>${selectedProject ? `${escapeHtml(selectedProject)} · ` : ""}${english ? "Last seen" : "آخرین ارتباط"}: <span data-talk-last-seen>${escapeHtml(talkFormatTime(selected.lastSeenAt))}</span></span></div><span class="talk-device-status ${selected.online ? "online" : ""}" data-talk-selected-status>${talkDeviceStatus(selected)}</span></header><div class="talk-quick-commands"><button type="button" data-talk-command="PING">PING</button><button type="button" data-talk-command="STATUS">STATUS</button><button type="button" data-talk-command="HELP">HELP</button><button type="button" data-talk-command="LED ON">LED ON</button><button type="button" data-talk-command="LED OFF">LED OFF</button></div><form class="talk-command-form" data-talk-command-form><label>${english ? "Type a command" : "فرمان را تایپ کنید"}<input name="command" maxlength="256" autocomplete="off" required placeholder="${english ? "Enter a device command" : "فرمان دستگاه را وارد کنید"}"></label><button class="btn-primary" type="submit">${english ? "Send" : "ارسال"}</button></form><div class="talk-history-heading"><h3>${english ? "Command history and replies" : "تاریخچهٔ فرمان و پاسخ‌ها"}</h3><small>${english ? "Updates automatically" : "به‌روزرسانی خودکار"}</small></div><div class="talk-history" data-talk-history><div class="talk-history-empty">${english ? "Loading…" : "در حال بارگذاری…"}</div></div>` : `<div class="talk-no-devices">${icons.wifi}<b>${english ? "Select or enroll a device" : "یک دستگاه انتخاب یا ثبت کنید"}</b><p>${english ? "Device connection status and command replies will appear here." : "وضعیت اتصال دستگاه و پاسخ فرمان‌ها اینجا نمایش داده می‌شود."}</p></div>`}</section></div></div>`;
+  if (selected) {
+    container.querySelector(".talk-device-console")?.insertAdjacentHTML("beforeend", `<div class="talk-chat-heading"><h3>${english ? "Live chat" : "گفت‌وگوی زنده"}</h3><small>${english ? "Serial Monitor ↔ Web" : "سریال مانیتور ↔ وب"}</small></div><div class="talk-chat" data-talk-chat aria-live="polite"><div class="talk-history-empty">${english ? "Loading messages…" : "در حال بارگذاری پیام‌ها…"}</div></div><form class="talk-command-form" data-talk-message-form><label>${english ? "Message the device" : "پیام به دستگاه"}<input name="message" maxlength="256" autocomplete="off" required placeholder="${english ? "Type a message for the ESP" : "پیام را بنویسید"}"></label><button class="btn-primary" type="submit">${english ? "Send message" : "ارسال پیام"}</button></form>`);
+    const addClearButton = (heading, attribute, label) => {
+      const hint = heading?.querySelector("small");
+      if (!heading || !hint) return;
+      const actions = document.createElement("div");
+      actions.className = "talk-history-actions";
+      hint.replaceWith(actions);
+      actions.append(hint);
+      actions.insertAdjacentHTML("beforeend", `<button type="button" class="talk-clear-section" ${attribute}>${icons.trash}<span>${label}</span></button>`);
+    };
+    addClearButton(container.querySelector(".talk-history-heading"), "data-talk-clear-commands", english ? "Clear history" : "پاک‌کردن تاریخچه");
+    addClearButton(container.querySelector(".talk-chat-heading"), "data-talk-clear-messages", english ? "Clear messages" : "پاک‌کردن پیام‌ها");
+  }
+}
+
+function renderTalkPage() {
+  const english = state.language === "en";
+  return `<section class="breadcrumb"><b>${english ? "Talk" : "صحبت"}</b></section><section class="page-intro talk-page-intro"><div class="page-intro-copy"><div class="eyebrow">${english ? "SECURE DEVICE CONSOLE" : "کنسول امن دستگاه"}</div><h2>${english ? "Talk to an ESP8266" : "ارتباط با ESP8266"}</h2><p>${english ? "Devices connect outbound over HTTPS. Commands and replies pass through this server." : "دستگاه‌ها از طریق HTTPS به سرور وصل می‌شوند و فرمان‌ها و پاسخ‌ها از همین سرور عبور می‌کنند."}</p></div></section><section class="talk-console-card"><header class="talk-console-header"><span class="talk-console-icon">${icons.message}</span><div><b>${english ? "Remote ESP console" : "کنسول راه‌دور ESP"}</b><small>${english ? "HTTPS polling · per-device credentials" : "ارتباط HTTPS · اعتبارنامهٔ مستقل برای هر دستگاه"}</small></div></header><div class="talk-console-body" data-talk-console-body>${english ? "Loading secure console…" : "در حال بارگذاری کنسول امن…"}</div></section>`;
+}
+
+async function talkLoadDevices() {
+  const result = await talkApi("/api/talk/devices");
+  return result.devices || [];
+}
+
+function talkRenderMessages(target, messages) {
+  if (!target) return;
+  const english = state.language === "en";
+  target.innerHTML = messages.length ? messages.map((item) => "<article class=\"talk-chat-message " + (item.sender === "device" ? "from-device" : "from-web") + "\"><small>" + (item.sender === "device" ? (english ? "ESP · Serial" : "ESP · سریال") : (english ? "Web" : "وب")) + " · " + escapeHtml(talkFormatTime(item.createdAt)) + "</small><p>" + escapeHtml(item.message) + "</p></article>").join("") : "<div class=\"talk-history-empty\">" + (english ? "No chat messages yet." : "هنوز پیامی ردوبدل نشده است.") + "</div>";
+  target.scrollTop = target.scrollHeight;
+}
+
+async function talkLoadHistory(container) {
+  if (!talkSelectedDeviceId) return;
+  const result = await talkApi(`/api/talk/devices/${encodeURIComponent(talkSelectedDeviceId)}/commands`);
+  const commands = result.commands || [];
+  talkRenderHistory(container.querySelector("[data-talk-history]"), commands);
+  talkUpdateCommandFeedback(container, commands);
+}
+
+function talkUpdateCommandFeedback(container, commands) {
+  if (!talkTrackedCommand || talkTrackedCommand.deviceId !== talkSelectedDeviceId) return;
+  const command = commands.find((item) => item.id === talkTrackedCommand.commandId);
+  if (!command) return;
+  const english = state.language === "en";
+  const messages = {
+    pending: english ? "Command queued; waiting for the ESP to receive it." : "فرمان در صف است؛ منتظر دریافت آن توسط ESP هستیم.",
+    claimed: english ? "The ESP received the command and is processing it." : "ESP فرمان را دریافت کرده و در حال اجراست.",
+    completed: english ? "Response received." : "پاسخ دریافت شد.",
+    failed: english
+      ? `The ESP could not complete the command: ${command.error || command.response || "No error details."}`
+      : `اجرای فرمان ناموفق بود: ${command.error || command.response || "جزئیات خطا دریافت نشد."}`,
+    expired: english ? "The command expired before the ESP returned a result." : "مهلت فرمان تمام شد و پاسخی از ESP نرسید.",
+  };
+  const status = messages[command.status] ? command.status : "pending";
+  if (talkTrackedCommand.lastStatus === status) return;
+  talkTrackedCommand.lastStatus = status;
+  talkSetFeedback(container, messages[status], status);
+}
+
+async function talkLoadMessages(container) {
+  if (!talkSelectedDeviceId) return;
+  const deviceId = talkSelectedDeviceId;
+  const result = await talkApi("/api/talk/devices/" + encodeURIComponent(deviceId) + "/messages");
+  const messages = result.messages || [];
+  talkRenderMessages(container.querySelector("[data-talk-chat]"), messages);
+
+  const seenIds = talkSeenDeviceMessages.get(deviceId);
+  const newDeviceMessage = seenIds && messages.some((item) => item.sender === "device" && !seenIds.has(item.id));
+  talkSeenDeviceMessages.set(deviceId, new Set(messages.map((item) => item.id)));
+
+  let deliveredWebMessage = false;
+  for (const item of messages) {
+    if (item.sender === "web" && item.deliveredAt && talkPendingMessages.get(item.id) === deviceId) {
+      talkPendingMessages.delete(item.id);
+      deliveredWebMessage = true;
+    }
+  }
+  const english = state.language === "en";
+  if (newDeviceMessage) {
+    talkSetFeedback(container, english ? "A new message was received from the ESP." : "پیام جدیدی از ESP دریافت شد.", "completed");
+  } else if (deliveredWebMessage) {
+    talkSetFeedback(container, english ? "The ESP received your message." : "پیام به ESP رسید.", "completed");
+  }
+}
+
+async function talkUpdateLive(container) {
+  if (!container.querySelector("[data-talk-authorized]")) return;
+  const devices = await talkLoadDevices();
+  devices.forEach((device) => {
+    const card = container.querySelector(`[data-talk-device-card="${CSS.escape(device.deviceId)}"]`);
+    if (card) {
+      const status = card.querySelector("[data-talk-device-status]");
+      const dot = card.querySelector(".talk-device-dot");
+      if (status) { status.textContent = talkDeviceStatus(device); status.classList.toggle("online", device.online); }
+      if (dot) dot.classList.toggle("online", device.online);
+    }
+  });
+  const selected = devices.find((device) => device.deviceId === talkSelectedDeviceId);
+  if (selected) {
+    const status = container.querySelector("[data-talk-selected-status]");
+    const seen = container.querySelector("[data-talk-last-seen]");
+    if (status) { status.textContent = talkDeviceStatus(selected); status.classList.toggle("online", selected.online); }
+    if (seen) seen.textContent = talkFormatTime(selected.lastSeenAt);
+  }
+  await talkLoadHistory(container);
+  await talkLoadMessages(container);
+}
+
+function talkSetFeedback(container, message, stateName = "info") {
+  if (!message) return;
+  const tone = stateName === "completed" ? "success" : "info";
+  showToast(escapeHtml(message), tone);
+}
+
+function talkQueueCommandFeedback(container, deviceId, command, acknowledgementOnly = false) {
+  talkTrackedCommand = { deviceId, commandId: command.id, acknowledgementOnly, lastStatus: "pending" };
+  talkSetFeedback(container, state.language === "en" ? "Command queued; waiting for the ESP to receive it." : "فرمان در صف است؛ منتظر دریافت آن توسط ESP هستیم.", "pending");
+}
+
+async function bindTalkConsole(root) {
+  const container = root.querySelector("[data-talk-console-body]");
+  if (!container) return;
+  if (talkRefreshTimer) clearInterval(talkRefreshTimer);
+  const english = state.language === "en";
+  try {
+    const session = await talkApi("/api/talk/session");
+    if (!session.authenticated) {
+      container.innerHTML = talkLoginMarkup();
+    } else {
+      talkRenderAuthenticated(container, await talkLoadDevices());
+      await talkLoadHistory(container).catch(() => {});
+      await talkLoadMessages(container).catch(() => {});
+      talkRefreshTimer = setInterval(() => talkUpdateLive(container).catch((error) => {
+        if (error.status === 401) { clearInterval(talkRefreshTimer); container.innerHTML = talkLoginMarkup(); }
+      }), 3000);
+    }
+  } catch (error) {
+    container.replaceChildren();
+    talkSetFeedback(container, error.message || (english ? "Could not load the console." : "بارگذاری کنسول ممکن نشد."), "error");
+  }
+  if (root.dataset.talkBound === "1") return;
+  root.dataset.talkBound = "1";
+  root.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (form.matches("[data-talk-login]")) {
+      event.preventDefault();
+      const password = new FormData(form).get("password");
+      try {
+        await talkApi("/api/talk/login", { method: "POST", body: JSON.stringify({ password }) });
+        talkRenderAuthenticated(container, await talkLoadDevices());
+        await talkLoadHistory(container).catch(() => {});
+        await talkLoadMessages(container).catch(() => {});
+        talkRefreshTimer = setInterval(() => talkUpdateLive(container).catch(() => {}), 3000);
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    } else if (form.matches("[data-talk-pair]")) {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(form).entries());
+      try {
+        const result = await talkApi("/api/talk/pairing", { method: "POST", body: JSON.stringify(values) });
+        talkRenderAuthenticated(container, await talkLoadDevices(), result.provisioningCode);
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    } else if (form.matches("[data-talk-command-form]")) {
+      event.preventDefault();
+      const command = new FormData(form).get("command");
+      try {
+        const deviceId = talkSelectedDeviceId;
+        const result = await talkApi(`/api/talk/devices/${encodeURIComponent(deviceId)}/commands`, { method: "POST", body: JSON.stringify({ command }) });
+        form.reset();
+        talkQueueCommandFeedback(container, deviceId, result.command);
+        await talkLoadHistory(container);
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    } else if (form.matches("[data-talk-message-form]")) {
+      event.preventDefault();
+      const message = new FormData(form).get("message");
+      try {
+        const deviceId = talkSelectedDeviceId;
+        const result = await talkApi("/api/talk/devices/" + encodeURIComponent(deviceId) + "/messages", { method: "POST", body: JSON.stringify({ message }) });
+        form.reset();
+        talkPendingMessages.set(result.message.id, deviceId);
+        talkSetFeedback(container, english ? "Message queued for delivery to the ESP." : "پیام در صف ارسال به ESP قرار گرفت.", "pending");
+        await talkLoadMessages(container);
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    }
+  });
+  root.addEventListener("click", async (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.matches("[data-talk-select]")) {
+      talkSelectedDeviceId = button.dataset.talkSelect;
+      talkSetFeedback(container, "", "info");
+      try { talkRenderAuthenticated(container, await talkLoadDevices()); await talkLoadHistory(container); await talkLoadMessages(container); }
+      catch (error) { talkSetFeedback(container, error.message, "error"); }
+    } else if (button.matches("[data-talk-command]")) {
+      try {
+        const deviceId = talkSelectedDeviceId;
+        const result = await talkApi(`/api/talk/devices/${encodeURIComponent(deviceId)}/commands`, { method: "POST", body: JSON.stringify({ command: button.dataset.talkCommand }) });
+        talkQueueCommandFeedback(container, deviceId, result.command, true);
+        await talkLoadHistory(container);
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    } else if (button.matches("[data-talk-clear-commands], [data-talk-clear-messages]")) {
+      const deviceId = talkSelectedDeviceId;
+      if (!deviceId) return;
+      const clearingCommands = button.matches("[data-talk-clear-commands]");
+      const confirmMessage = clearingCommands
+        ? (english ? "Clear this device's command history? Active commands will continue running." : "تاریخچهٔ فرمان‌های این دستگاه پاک شود؟ فرمان‌های فعال به کار خود ادامه می‌دهند.")
+        : (english ? "Clear this device's live chat messages?" : "پیام‌های گفت‌وگوی این دستگاه پاک شوند؟");
+      if (!window.confirm(confirmMessage)) return;
+      button.disabled = true;
+      try {
+        const endpoint = clearingCommands ? "commands/history" : "messages";
+        await talkApi(`/api/talk/devices/${encodeURIComponent(deviceId)}/${endpoint}`, { method: "DELETE" });
+        if (clearingCommands) {
+          if (talkTrackedCommand?.deviceId === deviceId) talkTrackedCommand = null;
+          await talkLoadHistory(container);
+          talkSetFeedback(container, english ? "Command history cleared; active commands continue." : "تاریخچهٔ فرمان‌ها پاک شد؛ فرمان‌های فعال ادامه پیدا می‌کنند.", "completed");
+        } else {
+          await talkLoadMessages(container);
+          talkSetFeedback(container, english ? "Chat messages cleared." : "پیام‌های گفت‌وگو پاک شد.", "completed");
+        }
+      } catch (error) {
+        talkSetFeedback(container, error.message, "error");
+      } finally {
+        if (button.isConnected) button.disabled = false;
+      }
+    } else if (button.matches("[data-talk-logout]")) {
+      try { await talkApi("/api/talk/logout", { method: "POST", body: "{}" }); } catch {}
+      if (talkRefreshTimer) clearInterval(talkRefreshTimer);
+      container.innerHTML = talkLoginMarkup();
+    } else if (button.matches("[data-talk-copy]")) {
+      const code = container.querySelector(".talk-pair-code code")?.textContent || "";
+      try { await navigator.clipboard.writeText(code); talkSetFeedback(container, english ? "Pairing code copied." : "کد ثبت کپی شد."); }
+      catch { talkSetFeedback(container, english ? "Select and copy the pairing code." : "کد ثبت را انتخاب و کپی کنید."); }
+    } else if (button.matches("[data-talk-revoke]")) {
+      const confirmMessage = english ? "Revoke this device's credentials? It will lose access immediately." : "اعتبارنامهٔ این دستگاه لغو شود؟ دسترسی آن فوراً قطع خواهد شد.";
+      if (!window.confirm(confirmMessage)) return;
+      try {
+        await talkApi(`/api/talk/devices/${encodeURIComponent(button.dataset.talkRevoke)}`, { method: "DELETE" });
+        talkSelectedDeviceId = null;
+        talkRenderAuthenticated(container, await talkLoadDevices());
+      } catch (error) { talkSetFeedback(container, error.message, "error"); }
+    }
+  });
+}
 function renderProjectCard(project) {
   const english = state.language === "en";
   const online = project.panels.filter((panel) => panel.status === "متصل" || panel.status === "Online").length;
@@ -925,7 +1234,7 @@ function renderProjectCard(project) {
   const coordinateLabel = project.coordinates?.lat !== null && project.coordinates?.lat !== undefined && project.coordinates?.lng !== null && project.coordinates?.lng !== undefined
     ? ` · ${Number(project.coordinates.lat).toFixed(4)}, ${Number(project.coordinates.lng).toFixed(4)}`
     : "";
-  return "<button type='button' class='project-card' data-project-id='" + escapeHtml(project.id) + "'><div class='project-card-visual" + (isSafeImageSource(project.image) ? " has-project-image" : "") + "'>" + projectImage + "<span class='project-status " + (project.status === "آنلاین" || project.status === "Online" ? "online" : "attention") + "'><i></i>" + projectStatus + "</span><span class='project-card-arrow'>" + icons.chevronLeft + "</span></div><div class='project-card-body'><div class='project-card-title'><div><small>" + escapeHtml(project.type) + "</small><h3>" + escapeHtml(project.name) + "</h3></div></div><p>" + icons.project + escapeHtml(project.location) + (coordinateLabel ? "<small class='project-coordinate-label' dir='ltr'>" + escapeHtml(coordinateLabel) + "</small>" : "") + "</p><div class='project-card-footer'><span>" + icons.panel + "<b>" + faDigits(project.panels.length) + "</b> " + (english ? "panels" : "پنل") + "</span><span class='online-count'><i></i>" + faDigits(online) + " " + (english ? "connected" : "متصل") + "</span>" + (alarms ? "<span class='alarm-count'>" + faDigits(alarms) + " " + (english ? "alarms" : "هشدار") + "</span>" : "") + "</div></div></button>";
+  return "<button type='button' class='project-card' data-project-id='" + escapeHtml(project.id) + "'><div class='project-card-visual" + (isSafeImageSource(project.image) ? " has-project-image" : "") + "'>" + projectImage + "<span class='project-status " + (project.status === "آنلاین" || project.status === "Online" ? "online" : "attention") + "'>" + (project.status === "آنلاین" || project.status === "Online" ? icons.check : icons.alertTriangle) + "<span>" + projectStatus + "</span></span><span class='project-card-arrow'>" + icons.chevronLeft + "</span></div><div class='project-card-body'><div class='project-card-title'><div><small>" + escapeHtml(project.type) + "</small><h3>" + escapeHtml(project.name) + "</h3></div></div><p>" + icons.project + escapeHtml(project.location) + (coordinateLabel ? "<small class='project-coordinate-label' dir='ltr'>" + escapeHtml(coordinateLabel) + "</small>" : "") + "</p><div class='project-card-footer'><span>" + icons.panel + "<b>" + faDigits(project.panels.length) + "</b> " + (english ? "panels" : "پنل") + "</span><span class='online-count'><i></i>" + faDigits(online) + " " + (english ? "connected" : "متصل") + "</span>" + (alarms ? "<span class='alarm-count'>" + icons.fire + faDigits(alarms) + " " + (english ? "alarms" : "هشدار") + "</span>" : "") + "</div></div></button>";
 }
 
 function hydrateProjectCardImages(root) {
@@ -1000,7 +1309,7 @@ function renderPanelList(project, panel) {
   const activePanel = panel || { id: "", name: english ? "No panel selected" : "پنلی انتخاب نشده", code: "—", status: "آفلاین", alarms: 0 };
   return "<section class='project-strip-wrap panel-popup-wrap panel-selector-wrap" + (state.panelMenuOpen ? " open" : " collapsed") + "' aria-label='" + (english ? "Project panels" : "پنل‌های پروژه") + "'>"
      + "<div class='project-strip-head panel-popup-head'><div class='panel-popup-head-main'><div class='project-strip-heading panel-popup-title'><span class='panel-popup-icon'>" + icons.panel + "</span><div><span class='eyebrow'>" + (english ? "PROJECT PANELS" : "پنل‌های پروژه") + "</span><h3>" + (english ? "Panels in this project" : "پنل‌های این پروژه") + "</h3><p>" + faDigits(project.panels.length) + " " + (english ? "registered panels" : "پنل ثبت‌شده") + "</p></div></div><div class='project-strip-current panel-current-selection'><span>" + icons.panel + "</span><div><small>" + (english ? "Selected panel" : "پنل انتخاب‌شده") + "</small><b>" + escapeHtml(activePanel.name) + "</b><em>" + escapeHtml(activePanel.code) + "</em></div></div></div><div class='project-strip-actions panel-popup-actions'><button type='button' class='strip-back panel-refresh-button' data-panel-refresh aria-label='" + (english ? "Refresh panels" : "به‌روزرسانی پنل‌ها") + "'>" + icons.refresh + (english ? "Refresh" : "به‌روزرسانی") + "</button><button type='button' class='icon-button small-icon project-strip-toggle panel-popup-toggle' data-panel-menu-toggle aria-expanded='" + state.panelMenuOpen + "' aria-label='" + (state.panelMenuOpen ? (english ? "Minimize panels" : "مینیمایز کردن پنل‌ها") : (english ? "Expand panels" : "باز کردن پنل‌ها")) + "'>" + (state.panelMenuOpen ? icons.chevronUp : icons.chevronDown) + "</button></div></div>"
-     + "<div class='panel-popup-body'><div class='panel-popup-list'>" + (project.panels.length ? project.panels.map((item) => "<div class='panel-list-item" + (item.id === activePanel.id ? " active" : "") + "'><button type='button' class='panel-select' data-panel-id='" + escapeHtml(item.id) + "'><span class='panel-list-icon'>" + icons.panel + "</span><span class='panel-list-copy'><b>" + escapeHtml(item.name) + "</b><small>" + escapeHtml(item.code) + "</small></span>" + (item.alarms ? "<span class='panel-alarm'>" + faDigits(item.alarms) + "</span>" : "") + (item.id === activePanel.id ? "<span class='selected-line'></span>" : "") + "</button></div>").join("") : "<div class='panel-empty-state'>" + (english ? "No panels have been added yet." : "هنوز پنلی اضافه نشده است.") + "</div>") + "</div><button type='button' class='add-panel-hint panel-add-from-hint' data-panel-create><span class='panel-add-hint-icon'>" + icons.plus + "</span><span><b>" + (english ? "Add a new panel" : "افزودن پنل جدید") + "</b><small>" + (english ? "Create a panel for this project. Connection and upload are managed separately." : "یک پنل جدید برای این پروژه تعریف کنید؛ اتصال و آپلود جداگانه مدیریت می‌شود.") + "</small></span></button></div></section>";
+     + "<div class='panel-popup-body'><div class='panel-popup-list'>" + (project.panels.length ? project.panels.map((item) => "<div class='panel-list-item" + (item.id === activePanel.id ? " active" : "") + "'><button type='button' class='panel-select' data-panel-id='" + escapeHtml(item.id) + "'><span class='panel-list-icon'>" + icons.panel + "</span><span class='panel-list-copy'><b>" + escapeHtml(item.name) + "</b><small>" + escapeHtml(item.code) + "</small></span>" + (item.alarms ? "<span class='panel-alarm'>" + icons.fire + "<span>" + (english ? "Alarm" : "آلارم") + "</span><b>" + faDigits(item.alarms) + "</b></span>" : "") + (item.id === activePanel.id ? "<span class='selected-line'></span>" : "") + "</button></div>").join("") : "<div class='panel-empty-state'>" + (english ? "No panels have been added yet." : "هنوز پنلی اضافه نشده است.") + "</div>") + "</div><button type='button' class='add-panel-hint panel-add-from-hint' data-panel-create><span class='panel-add-hint-icon'>" + icons.plus + "</span><span><b>" + (english ? "Add a new panel" : "افزودن پنل جدید") + "</b><small>" + (english ? "Create a panel for this project. Connection and upload are managed separately." : "یک پنل جدید برای این پروژه تعریف کنید؛ اتصال و آپلود جداگانه مدیریت می‌شود.") + "</small></span></button></div></section>";
 }
 
 function isMobileWorkspace() {
@@ -2081,7 +2390,7 @@ function renderFeaturesSetting() {
 function renderEventsSetting() {
   const events = [["حریق", "دتکتور دود · طبقه ۲", "امروز، ۰۹:۴۲", "fire"], ["خطای ارتباط", "Loop Card 2", "امروز، ۰۸:۱۵", "fault"], ["بازگشت به حالت عادی", "زون ۰۳", "دیروز، ۱۸:۲۱", "normal"]];
   const panel = findPanel() || { name: state.language === "en" ? "No panel selected" : "پنلی انتخاب نشده" };
-  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${panel.name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact" data-events-read>${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact" data-events-export>${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.bell : type === "fault" ? icons.wifi : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div>${renderSettingActions()}</article>`;
+  return `<article class="sub-card"><div class="sub-card-head"><div><h3>رویدادهای پنل</h3><p>آخرین رخدادهای ثبت‌شده برای ${panel.name}</p></div><div class="sub-actions"><button type="button" class="btn-secondary compact" data-events-read>${icons.refresh}خواندن رویدادها</button><button type="button" class="btn-secondary compact" data-events-export>${icons.report}خروجی گزارش</button></div></div><div class="events-list">${events.map(([title, desc, time, type]) => `<div class="event-row"><span class="event-icon ${type}">${type === "fire" ? icons.fire : type === "fault" ? icons.alertTriangle : icons.check}</span><div><b>${title}</b><small>${desc}</small></div><time>${time}</time><span class="event-chevron">${icons.chevronLeft}</span></div>`).join("")}</div>${renderSettingActions()}</article>`;
 }
 
 function renderRemoteSetting() {
@@ -2246,21 +2555,28 @@ function renderApp() {
   const isPanelDetail = state.view === "panel-detail";
   const isWorkspace = state.view === "workspace" && Boolean(project);
   const isProjectImages = state.view === "project-images";
+  const isTalk = state.view === "talk";
+  const isFloorPlan = state.view === "floor-plans";
   const detailEntry = isPanelDetail ? findPanelDirectoryEntry() : null;
-  document.querySelector("#topbar-title").textContent = isStandaloneLanguage ? "زبان رابط کاربری" : (isWorkspace ? project.name : (isPanelDetail ? detailEntry?.panel.name || "مدیریت پنل" : (isPanelDirectory ? "پنل‌های من" : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها"))));
-  document.querySelector("#topbar-subtitle").textContent = isStandaloneLanguage ? "تنظیمات مستقل نرم‌افزار" : (isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isPanelDetail ? `${detailEntry?.project.name || ""} · مدیریت وضعیت و رویدادها` : (isPanelDirectory ? "مدیریت پنل‌ها بر اساس سایت و محل نصب" : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما"))));
+  document.querySelector("#topbar-title").textContent = isTalk ? (state.language === "en" ? "Talk" : "صحبت") : (isStandaloneLanguage ? "زبان رابط کاربری" : (isWorkspace ? project.name : (isPanelDetail ? detailEntry?.panel.name || "مدیریت پنل" : (isPanelDirectory ? "پنل‌های من" : (isProjectImages ? "عکس‌های پروژه" : "پروژه‌ها")))));
+  if (isFloorPlan) document.querySelector("#topbar-title").textContent = "Floor Plan Layout";
+  document.querySelector("#topbar-subtitle").textContent = isTalk ? (state.language === "en" ? "Experimental ESP8266 command console" : "کنسول آزمایشی ارتباط با ESP8266") : (isStandaloneLanguage ? "تنظیمات مستقل نرم‌افزار" : (isWorkspace ? `${project.panels.length} پنل · مدیریت تنظیمات و مانیتورینگ` : (isPanelDetail ? `${detailEntry?.project.name || ""} · مدیریت وضعیت و رویدادها` : (isPanelDirectory ? "مدیریت پنل‌ها بر اساس سایت و محل نصب" : (isProjectImages ? "افزودن و تغییر تصویر کارت پروژه‌ها" : "پروژه‌ها و پنل‌های تحت مدیریت شما")))));
+  if (isFloorPlan) document.querySelector("#topbar-subtitle").textContent = "Place fire alarm devices on a PDF floor plan and export a vector-stamped copy.";
   const hasSettingShortcut = state.view === "workspace" && [...document.querySelectorAll("[data-nav-setting]")].some((item) => item.dataset.navSetting === state.selectedSettingId);
   document.querySelectorAll("[data-nav-view]").forEach((item) => {
     const active = item.dataset.navView === state.view && (item.dataset.navSetting ? item.dataset.navSetting === state.selectedSettingId : !hasSettingShortcut);
     item.classList.toggle("active", active);
   });
-  content.innerHTML = isStandaloneLanguage ? renderWorkspace(project) : isWorkspace ? renderWorkspace(project) : isPanelDirectory ? renderPanelsPage() : isPanelDetail ? renderPanelDetailPage() : state.view === "project-images" ? renderProjectImagesPageV2() : renderProjectsPage();
-  if (!isWorkspace && !isStandaloneLanguage && !isPanelDirectory && !isPanelDetail) {
+  content.innerHTML = isFloorPlan ? `<section id="floor-plan-module"></section>` : isTalk ? renderTalkPage() : (isStandaloneLanguage ? renderWorkspace(project) : isWorkspace ? renderWorkspace(project) : isPanelDirectory ? renderPanelsPage() : isPanelDetail ? renderPanelDetailPage() : state.view === "project-images" ? renderProjectImagesPageV2() : renderProjectsPage());
+  if (!isWorkspace && !isStandaloneLanguage && !isPanelDirectory && !isPanelDetail && !isTalk) {
     hydrateProjectCardImages(content);
     hydrateProjectGalleryImages(content);
   }
   restoreGenericSettingControls();
   bindViewEvents();
+  if (isFloorPlan) void mountFloorPlanModule(document.querySelector("#floor-plan-module"), state.loopCards);
+  if (isTalk) void bindTalkConsole(content);
+  else if (talkRefreshTimer) { clearInterval(talkRefreshTimer); talkRefreshTimer = null; }
   document.documentElement.lang = state.language === "en" ? "en" : "fa";
   document.documentElement.dir = state.language === "en" ? "ltr" : "rtl";
   updateConnectionStatus();
@@ -3011,10 +3327,10 @@ function bindViewEvents() {
         deleteProject(deleteControl.dataset.projectDelete);
         return;
       }
-      // Only an actual project card navigates to the monitoring workspace.
-      // Gallery inputs and gallery action buttons also carry a project id, but
-      // must stay inside the project image manager.
-      const button = event.target.closest(".project-card[data-project-id]");
+      // Project cards and the project selector inside the workspace both
+      // navigate to a project. Other controls that carry a project id (such as
+      // gallery actions) stay inside their current view.
+      const button = event.target.closest(".project-card[data-project-id], .project-strip-item[data-project-id]");
       if (!button || !content.contains(button)) return;
       const selectedProject = projects.find((project) => project.id === button.dataset.projectId);
       if (!selectedProject) return;
@@ -3023,6 +3339,7 @@ function bindViewEvents() {
         state.selectedPanelId = selectedProject.panels[0]?.id || null;
         if (!selectedProject.panels.some((panel) => panel.id === state.connectedPanelId)) state.connectedPanelId = null;
         state.selectedSettingId = "date-time";
+        state.projectMenuOpen = false;
         // Start the configuration sidebar minimized on every viewport.
         state.panelMenuOpen = false;
         state.settingsTreeCollapsed = true;

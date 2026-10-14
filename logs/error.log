@@ -1,0 +1,2 @@
+2026/10/14 12:35:02 [emerg] 11712#7756: CreateFile() "C:\Users\Electronic\Desktop\monitoring system/conf/nginx.conf" failed (3: The system cannot find the path specified)
+2026/10/14 12:35:02 [emerg] 2036#9572: CreateFile() "C:\Users\Electronic\Desktop\monitoring system/conf/nginx.conf" failed (3: The system cannot find the path specified)
