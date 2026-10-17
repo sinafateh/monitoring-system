@@ -8,6 +8,9 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { fileURLToPath } from "node:url";
 import multer from "multer";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import { Resvg } from "@resvg/resvg-js";
+import reshaper from "arabic-persian-reshaper";
 
 const { Pool } = pg;
 const app = express();
@@ -21,6 +24,11 @@ const distIndex = path.join(distDirectory, "index.html");
 const deviceSchemaPath = path.join(serverDirectory, "device-schema.sql");
 const floorPlanSchemaPath = path.join(serverDirectory, "floor-plan-schema.sql");
 const floorPlanUploadDirectory = path.join(projectDirectory, "uploads", "plans");
+const deviceIconDirectory = path.join(projectDirectory, "public", "icons");
+// pdf-lib's fontkit embedding needs the WOFF font, not the browser-oriented WOFF2 subset.
+// Use a single font with both Arabic and Latin glyphs so mixed Persian labels
+// (for example, "آدرس: 3") stay in one correctly ordered text run.
+const pdfLabelFontPath = process.env.FLOOR_PLAN_PDF_FONT || path.join(process.env.WINDIR || "C:/Windows", "Fonts", "tahoma.ttf");
 const configuredOrigins = (process.env.CORS_ORIGIN || "").split(",").map((origin) => origin.trim()).filter(Boolean);
 const corsOptions = configuredOrigins.length ? { origin: (origin, callback) => callback(null, !origin || configuredOrigins.includes(origin)) } : undefined;
 
@@ -644,13 +652,14 @@ app.delete("/api/floor-plans/:id", async (req, res) => {
 
 app.get("/api/floor-plans/:id/layout", async (req, res) => {
   const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const allPages = req.query.allPages === "true";
   try {
     await ensureFloorPlanSchema();
     const plan = await pool.query("SELECT id FROM floor_plans WHERE id=$1", [req.params.id]);
     if (!plan.rowCount) return res.sendStatus(404);
     const result = await pool.query(
-      `SELECT id,device_id AS "deviceId",panel_id AS "panelId",device_type AS "deviceType",loop_no AS loop,address,zone,label,norm_x AS "normX",norm_y AS "normY",rotation
-       FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2 ORDER BY id`, [req.params.id, page]);
+      `SELECT id,page_number AS "pageNumber",device_id AS "deviceId",panel_id AS "panelId",device_type AS "deviceType",icon_type AS "iconType",device_name AS name,loop_no AS loop,address,zone,label,norm_x AS "normX",norm_y AS "normY",rotation
+       FROM floor_plan_devices WHERE floor_plan_id=$1 ${allPages ? "" : "AND page_number=$2"} ORDER BY page_number,id`, allPages ? [req.params.id] : [req.params.id, page]);
     return res.json({ ok: true, devices: result.rows });
   } catch (error) {
     console.error("Floor plan layout read error:", error);
@@ -674,7 +683,7 @@ app.post("/api/floor-plans/:id/layout", async (req, res) => {
     normalized.push({
       projectId: String(device.projectId || "").slice(0, 120),
       values: [randomUUID(), req.params.id, page, String(device.deviceId || "").slice(0, 120) || null, String(device.panelId || "").slice(0, 120) || null, device.deviceType,
-        String(device.loop || "").slice(0, 40), String(device.address || "").slice(0, 80), String(device.zone || "").slice(0, 80), String(device.label || "").slice(0, 160), normX, normY, rotation % 360],
+        String(device.iconType || "").slice(0, 30), String(device.name || "").slice(0, 120), String(device.loop || "").slice(0, 40), String(device.address || "").slice(0, 80), String(device.zone || "").slice(0, 80), String(device.label || "").slice(0, 160), normX, normY, rotation % 360],
     });
   }
   const client = await pool.connect().catch(() => null);
@@ -693,8 +702,8 @@ app.post("/api/floor-plans/:id/layout", async (req, res) => {
     }
     await client.query("DELETE FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2", [req.params.id, page]);
     for (const item of normalized) await client.query(
-      `INSERT INTO floor_plan_devices (id,floor_plan_id,page_number,device_id,panel_id,device_type,loop_no,address,zone,label,norm_x,norm_y,rotation)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, item.values);
+      `INSERT INTO floor_plan_devices (id,floor_plan_id,page_number,device_id,panel_id,device_type,icon_type,device_name,loop_no,address,zone,label,norm_x,norm_y,rotation)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, item.values);
     await client.query("COMMIT");
     return res.json({ ok: true, count: normalized.length });
   } catch (error) {
@@ -706,6 +715,7 @@ app.post("/api/floor-plans/:id/layout", async (req, res) => {
 
 app.get("/api/floor-plans/:id/export", async (req, res) => {
   const pageNumber = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const addressPrefix = req.query.lang === "en" ? "Address: " : "\u0622\u062f\u0631\u0633:";
   try {
     await ensureFloorPlanSchema();
     const result = await pool.query("SELECT name,pdf_path,page_count FROM floor_plans WHERE id=$1", [req.params.id]);
@@ -713,50 +723,82 @@ app.get("/api/floor-plans/:id/export", async (req, res) => {
     if (!plan || !existsSync(plan.pdf_path)) return res.sendStatus(404);
     if (pageNumber > plan.page_count) return res.sendStatus(400);
     const pdf = await PDFDocument.load(readFileSync(plan.pdf_path));
+    pdf.registerFontkit(fontkit);
     const page = pdf.getPage(pageNumber - 1);
     const { width, height } = page.getSize();
-    const rows = await pool.query("SELECT device_type AS type,address,zone,label,norm_x AS x,norm_y AS y,rotation FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2", [req.params.id, pageNumber]);
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const rows = await pool.query("SELECT device_type AS type,icon_type AS \"iconType\",device_name AS name,address,zone,label,norm_x AS x,norm_y AS y,rotation FROM floor_plan_devices WHERE floor_plan_id=$1 AND page_number=$2", [req.params.id, pageNumber]);
+    const labelFont = await pdf.embedFont(readFileSync(pdfLabelFontPath), { subset: true });
     const ink = rgb(0.02, 0.15, 0.30), white = rgb(1, 1, 1);
-    const drawCenteredGlyph = (text, centerX, centerY, rotation) => {
-      // Size and rotate the glyph around the symbol center so it stays inside its frame.
-      const maxTextWidth = 18;
-      const size = Math.min(7, maxTextWidth / Math.max(font.widthOfTextAtSize(text, 7), 0.1) * 7);
-      const textWidth = font.widthOfTextAtSize(text, size);
-      const textHeight = font.heightAtSize(size);
-      const radians = rotation * Math.PI / 180;
-      const cosine = Math.cos(radians), sine = Math.sin(radians);
-      const originX = centerX - cosine * textWidth / 2 + sine * textHeight / 2;
-      const originY = centerY - sine * textWidth / 2 - cosine * textHeight / 2;
-      page.drawText(text, { x: originX, y: originY, size, font, color: ink, rotate: degrees(rotation) });
+    const formatPdfLabel = (value, fallback = "") => {
+      const raw = String(value || "").trim();
+      if (!raw || (/\?{2,}/.test(raw) && /^[\s?/:._-]+$/.test(raw))) return { text: fallback || "" };
+      const hasPersian = /[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(raw);
+      // PersianShaper converts letters to connected presentation forms while
+      // preserving logical character order. Applying a second bidi reversal
+      // makes the PDF viewer reverse the letters again and corrupts the label.
+      return { text: hasPersian ? reshaper.PersianShaper.convertArabic(raw) : raw };
     };
+    const drawPdfLabel = (text, centerX, baselineY, size, maxWidth) => {
+      if (!text) return;
+      const naturalWidth = labelFont.widthOfTextAtSize(text, size);
+      const fittedSize = naturalWidth > maxWidth ? size * maxWidth / naturalWidth : size;
+      const textWidth = labelFont.widthOfTextAtSize(text, fittedSize);
+      page.drawText(text, { x: centerX - textWidth / 2, y: baselineY, size: fittedSize, font: labelFont, color: ink });
+    };
+    const getDeviceFallbackName = (type) => ({ SD: "Smoke Detector", HD: "Heat Detector", MS: "Multi-Sensor", MCP: "Manual Call Point", "SND/FL": "Sounder / Flasher", MOD: "Control / Monitor Module", FACP: "Fire Alarm Control Panel" }[type] || "Device");
+    const iconFiles = { smoke: "SMOKE.svg", heat: "HEAT.svg", multi: "MULTI.svg", manual: "MANUAL.svg", sounder: "SOUNDER.svg", zone: "ZONE.svg", input: "INPUT.svg", io: "OUTPUT.svg", panel: "PANEL.svg" };
+    const iconForType = { SD: "smoke", HD: "heat", MS: "multi", MCP: "manual", "SND/FL": "sounder", MOD: "io", FACP: "panel" };
+    const iconCache = new Map();
+    const getDeviceIcon = (device) => {
+      const key = iconFiles[device.iconType] ? device.iconType : iconForType[device.type] || "io";
+      if (!iconCache.has(key)) {
+        const svg = readFileSync(path.join(deviceIconDirectory, iconFiles[key]), "utf8");
+        // Render the exact same SVG symbol used by the web app at high resolution.
+        iconCache.set(key, pdf.embedPng(new Resvg(svg, { fitTo: { mode: "width", value: 256 } }).render().asPng()));
+      }
+      return iconCache.get(key);
+    };
+    const labelPlacements = [];
     for (const device of rows.rows) {
-      const x = device.x * width, y = height - device.y * height;
-      // Draw each marker from PDF vector primitives so the original plan stays vector-quality.
-      if (["SD", "HD", "MS"].includes(device.type)) {
-        page.drawCircle({ x, y, size: 9, color: white, borderColor: ink, borderWidth: 1.4, rotate: degrees(device.rotation) });
-        const radians = device.rotation * Math.PI / 180;
-        const dx = Math.cos(radians) * 4, dy = Math.sin(radians) * 4;
-        page.drawLine({ start: { x: x - dx, y: y - dy }, end: { x: x + dx, y: y + dy }, thickness: 0.8, color: ink });
-        page.drawLine({ start: { x: x + dy, y: y - dx }, end: { x: x - dy, y: y + dx }, thickness: 0.8, color: ink });
-        if (device.type === "MS") page.drawCircle({ x, y, size: 2, color: ink });
-      } else {
-        const radians = device.rotation * Math.PI / 180;
-        const cosine = Math.cos(radians), sine = Math.sin(radians);
-        // pdf-lib rotates rectangles around their lower-left origin. Move that
-        // origin so the rotated rectangle remains centered on the saved point.
-        const boxX = x - cosine * 12 + sine * 8;
-        const boxY = y - sine * 12 - cosine * 8;
-        page.drawRectangle({ x: boxX, y: boxY, width: 24, height: 16, color: white, borderColor: ink, borderWidth: 1.4, rotate: degrees(device.rotation) });
-        const glyph = device.type === "SND/FL" ? "S/F" : device.type;
-        drawCenteredGlyph(glyph, x, y, device.rotation);
+      const anchorX = device.x * width, anchorY = height - device.y * height;
+      const icon = await getDeviceIcon(device);
+      const iconSize = 14; // Web canvas uses a 28 px icon at PDF.js scale 2.
+      const iconCenterY = anchorY + 5; // Match the SVG's -10 px offset above the text labels.
+      page.drawImage(icon, { x: anchorX - iconSize / 2, y: iconCenterY - iconSize / 2, width: iconSize, height: iconSize, rotate: degrees(-(device.rotation || 0)) });
+      const nameText = formatPdfLabel(device.name, getDeviceFallbackName(device.type)).text;
+      const addressText = formatPdfLabel(`${addressPrefix}${device.address || ""}`).text;
+      const labelWidth = Math.min(120, Math.max(32,
+        labelFont.widthOfTextAtSize(nameText, 6.5),
+        labelFont.widthOfTextAtSize(addressText, 5.8)) + 8);
+      labelPlacements.push({ anchorX, anchorY, nameText, addressText, width: labelWidth });
+    }
+    // Keep close devices' two-line tags separate and readable on top of busy plan artwork.
+    // Keep labels close to their own icon while using small horizontal and
+    // vertical nudges to prevent the tags from colliding on dense plans.
+    const occupiedLabels = [];
+    for (const label of labelPlacements) {
+      const boxWidth = label.width;
+      const boxHeight = 18;
+      const baseX = Math.max(boxWidth / 2 + 3, Math.min(width - boxWidth / 2 - 3, label.anchorX));
+      const baseY = Math.max(boxHeight / 2 + 3, label.anchorY - 15);
+      const shifts = [];
+      for (const dx of [0, -8, 8, -16, 16, -24, 24, -32, 32]) {
+        for (const dy of [0, 6, 12, 18, 24]) {
+          if (Math.hypot(dx, dy) <= 36) shifts.push({ dx, dy, distance: Math.hypot(dx, dy) });
+        }
       }
-      const tag = String(device.address || device.label || device.type).replace(/[^\x20-\x7E]/g, "").slice(0, 40);
-      if (tag) page.drawText(tag, { x: x + 15, y: y - 3, size: 7, font, color: ink });
-      if (device.zone) {
-        const zone = String(device.zone).replace(/[^\x20-\x7E]/g, "").slice(0, 30);
-        if (zone) page.drawText(zone, { x: x + 15, y: y - 11, size: 6, font, color: ink });
+      shifts.sort((a, b) => a.distance - b.distance || a.dy - b.dy);
+      let centerX = baseX, centerY = baseY;
+      for (const shift of shifts) {
+        const candidateX = Math.max(boxWidth / 2 + 3, Math.min(width - boxWidth / 2 - 3, baseX + shift.dx));
+        const candidateY = Math.max(boxHeight / 2 + 3, baseY - shift.dy);
+        const bounds = { left: candidateX - boxWidth / 2, right: candidateX + boxWidth / 2, bottom: candidateY - boxHeight / 2, top: candidateY + boxHeight / 2 };
+        const overlaps = occupiedLabels.some((other) => bounds.left < other.right + 1 && bounds.right > other.left - 1 && bounds.bottom < other.top + 1 && bounds.top > other.bottom - 1);
+        if (!overlaps) { centerX = candidateX; centerY = candidateY; occupiedLabels.push(bounds); break; }
       }
+      page.drawRectangle({ x: centerX - boxWidth / 2, y: centerY - boxHeight / 2, width: boxWidth, height: boxHeight, color: white });
+      drawPdfLabel(label.nameText, centerX, centerY + 1, 6.5, boxWidth - 6);
+      drawPdfLabel(label.addressText, centerX, centerY - 6, 5.8, boxWidth - 6);
     }
     const bytes = await pdf.save();
     const filename = `${plan.name.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 80) || "floor-plan"}-mapped.pdf`;

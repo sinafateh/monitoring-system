@@ -14,6 +14,7 @@ const icons = {
   dashboard: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="4" rx="1.5"/><rect x="14" y="10" width="7" height="11" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>`,
   panel: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h2m4 0h2M8 15h2m4 0h2M8 18h8"/></svg>`,
   project: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg>`,
+  map: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15m6-12v15"/></svg>`,
   image: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3 2.5-2 5 5"/></svg>`,
   message: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-9.5A7.5 7.5 0 0 1 10.5 4h2A7.5 7.5 0 0 1 20 11.5Z"/><path d="M8 11h8M8 14h5"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>`,
@@ -68,6 +69,7 @@ const deviceIconFiles = {
   sounder: "SOUNDER.svg",
   zone: "ZONE.svg",
   input: "INPUT.svg",
+  io: "OUTPUT.svg",
 };
 const manualDeviceIconMarkup = "<svg class=\"device-type-icon manual-device-icon\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-2,.cls-4,.cls-5,.cls-6{fill:none;stroke:#06254b;stroke-miterlimit:10;}.cls-1{stroke-width:0.5px;}.cls-2{stroke-width:1.97px;}.cls-3{fill:#06254b;}.cls-4{stroke-width:0.25px;}.cls-5{stroke-width:0.36px;}.cls-6{stroke-width:0.14px;}</style></defs><rect class=\"manual-background\" x=\"0.3\" y=\"0.3\" width=\"31.4\" height=\"31.4\" rx=\"2.94\"/><rect class=\"manual-fill\" x=\"3.67\" y=\"11.32\" width=\"24.65\" height=\"15.72\" rx=\"1.07\"/><rect class=\"manual-fill\" x=\"9.51\" y=\"3.31\" width=\"12.98\" height=\"5.83\" rx=\"1.92\"/><rect class=\"manual-outline manual-outline-thin\" x=\"0.3\" y=\"0.3\" width=\"31.4\" height=\"31.4\" rx=\"2.94\"/><rect class=\"manual-outline manual-outline-thin\" x=\"3.67\" y=\"11.32\" width=\"24.65\" height=\"15.72\" rx=\"1.07\"/><line class=\"manual-outline manual-outline-heavy\" x1=\"20.98\" y1=\"18.49\" x2=\"23.65\" y2=\"18.49\"/><polygon class=\"manual-solid\" points=\"23.07 20.46 26.48 18.49 23.07 16.52 23.07 20.46\"/><line class=\"manual-outline manual-outline-heavy\" x1=\"11.02\" y1=\"18.49\" x2=\"8.35\" y2=\"18.49\"/><polygon class=\"manual-solid\" points=\"8.93 16.52 5.52 18.49 8.93 20.46 8.93 16.52\"/><circle class=\"manual-solid\" cx=\"16\" cy=\"18.49\" r=\"1.91\"/><rect class=\"manual-outline manual-outline-fine\" x=\"9.51\" y=\"3.31\" width=\"12.98\" height=\"5.83\" rx=\"1.92\"/><path class=\"manual-outline manual-outline-light\" d=\"M12.69,28.19H3.88a1.31,1.31,0,0,1-1.3-1.31V11.63a1.3,1.3,0,0,1,1.3-1.3h24.2a1.31,1.31,0,0,1,1.31,1.3V26.88a1.31,1.31,0,0,1-1.31,1.31h-8.8\"/><path class=\"manual-outline manual-outline-light\" d=\"M19.38,28.27c0,1-1.52,1.76-3.4,1.76s-3.39-.78-3.39-1.76\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"10.62\" y1=\"11.84\" x2=\"7.22\" y2=\"15.24\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"13.68\" y1=\"11.98\" x2=\"11.12\" y2=\"14.54\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"22.21\" y1=\"12.44\" x2=\"17.88\" y2=\"16.77\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"14.28\" y1=\"21.57\" x2=\"10.09\" y2=\"25.77\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"8.95\" y1=\"21.04\" x2=\"7.89\" y2=\"22.1\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"7.89\" y1=\"20.24\" x2=\"5.06\" y2=\"23.07\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"18.81\" y1=\"21.97\" x2=\"14.82\" y2=\"25.84\"/><line class=\"manual-outline manual-outline-hairline\" x1=\"23.41\" y1=\"16.37\" x2=\"26.34\" y2=\"13.04\"/></svg>";
 const smokeDeviceIconMarkup = "<svg class=\"device-type-icon device-inline-icon device-inline-detector\" aria-hidden=\"true\" focusable=\"false\" id=\"Layer_1\" data-name=\"Layer 1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><defs><style>.cls-1,.cls-3,.cls-4{fill:none;stroke:#06254b;stroke-linecap:round;}.cls-1,.cls-4{stroke-miterlimit:10;}.cls-1{stroke-width:0.79px;}.cls-2{fill:#06254b;}.cls-3{stroke-linejoin:round;}.cls-3,.cls-4{stroke-width:0.75px;}</style></defs><path class=\"device-hover-shape cls-1\" d=\"M27.29,14.05s2.18-.64,2.26-2.34c.16-3.77-8.13-4.89-13.94-4.83S2.43,8,2,10.85C1.66,13.07,4.15,14,4.15,14\"/><path class=\"device-hover-shape cls-1\" d=\"M29.75,11.48s.77-5.1.23-6.68S26.71.65,15.14.81C1.57,1,1.83,5.36,1.83,5.36l.08,5.57\"/><ellipse class=\"device-hover-shape cls-1\" cx=\"15.59\" cy=\"15.79\" rx=\"8.94\" ry=\"2.69\"/><path class=\"device-hover-shape cls-1\" d=\"M6.58,14.87s-1.76-1.36-1.49-3S11,8.92,16,9s9.81,1.09,10.11,3a4,4,0,0,1-1.31,3.34\"/><path class=\"device-hover-shape cls-1\" d=\"M7.82,10.21A10.33,10.33,0,0,0,9,13.81\"/><line class=\"cls-1\" x1=\"12.97\" y1=\"9.07\" x2=\"13.62\" y2=\"13.01\"/><line class=\"cls-1\" x1=\"18.77\" y1=\"9.12\" x2=\"17.85\" y2=\"13.11\"/><path class=\"device-hover-shape cls-1\" d=\"M23.23,10s-.47,3.15-1.36,3.75\"/><ellipse class=\"device-hover-shape device-original-solid cls-2\" cx=\"15.59\" cy=\"15.79\" rx=\"4.97\" ry=\"1.29\"/><line class=\"cls-1\" x1=\"6.85\" y1=\"17.89\" x2=\"2.73\" y2=\"20.68\"/><line class=\"cls-1\" x1=\"10.03\" y1=\"19.52\" x2=\"7.43\" y2=\"22.47\"/><line class=\"cls-1\" x1=\"13.04\" y1=\"20.33\" x2=\"12.54\" y2=\"22.82\"/><line class=\"cls-1\" x1=\"18.58\" y1=\"19.95\" x2=\"18.66\" y2=\"21.36\"/><line class=\"cls-1\" x1=\"22.18\" y1=\"19.69\" x2=\"24.32\" y2=\"22.16\"/><line class=\"cls-1\" x1=\"24.76\" y1=\"18.02\" x2=\"28.24\" y2=\"20.33\"/><path class=\"device-hover-shape cls-3\" d=\"M1.35,29.52a2.48,2.48,0,0,1,3.12-1.68c.12-2.63,1.77-4.43,5.42-3.24\"/><path class=\"device-hover-shape cls-3\" d=\"M9.76,26.85A3.74,3.74,0,0,1,14,26.69C15,25.29,16,23.9,18.5,24.47\"/><path class=\"device-hover-shape cls-3\" d=\"M18,27.71c.16-4.26,4.38-5.9,8-3.11\"/><path class=\"device-hover-shape cls-4\" d=\"M24.41,28.78s-.33-5.29,5.25-4.26\"/><path class=\"device-hover-shape cls-4\" d=\"M9.93,31.2s1.27-3.49,5.53-2.58\"/></svg>";
@@ -370,6 +372,44 @@ function isCorruptedText(value) {
   return !text || /^\?+(?:\s+\?+)*$/.test(text);
 }
 
+function isQuestionMarkCorruption(value) {
+  const text = String(value ?? "").trim();
+  return /\?{2,}/.test(text) && /^[\s?/:._-]+$/.test(text);
+}
+
+const defaultLoopDeviceLocations = new Map(createInitialLoopCards().flatMap((card) => card.devices.map((device) => [device.id, device.location])));
+
+function repairLoopCardLocations(loopCards) {
+  if (!Array.isArray(loopCards)) return { loopCards, repaired: false };
+  let repaired = false;
+  const result = loopCards.map((card) => ({
+    ...card,
+    devices: (card.devices || []).map((device) => {
+      if (!isQuestionMarkCorruption(device.location)) return device;
+      repaired = true;
+      return { ...device, location: defaultLoopDeviceLocations.get(device.id) || "موقعیت ثبت‌نشده" };
+    }),
+  }));
+  return { loopCards: result, repaired };
+}
+
+function repairSavedLoopCardLocations(files) {
+  if (!Array.isArray(files)) return { files, repaired: false };
+  let repaired = false;
+  const result = files.map((file) => {
+    if (!Array.isArray(file.snapshot?.loopCards)) return file;
+    const normalized = repairLoopCardLocations(file.snapshot.loopCards);
+    repaired ||= normalized.repaired;
+    return normalized.repaired ? { ...file, snapshot: { ...file.snapshot, loopCards: normalized.loopCards } } : file;
+  });
+  return { files: result, repaired };
+}
+
+function loopDeviceLocationLabel(device) {
+  if (isQuestionMarkCorruption(device?.location)) return defaultLoopDeviceLocations.get(device.id) || (activeLanguage === "en" ? "Location not set" : "موقعیت ثبت‌نشده");
+  return device?.location || "—";
+}
+
 function normalizeProjectGallery(project) {
   const rawImages = Array.isArray(project.images) ? project.images : [];
   const gallery = rawImages.map((item, index) => {
@@ -433,6 +473,7 @@ function captureApplicationState() {
 
 function applyApplicationState(payload) {
   if (!payload || typeof payload !== "object") return;
+  let repairedText = false;
   if (Array.isArray(payload.projects)) {
     projects.splice(0, projects.length, ...normalizePersistedProjects(cloneSettingsData(payload.projects)));
   }
@@ -440,6 +481,9 @@ function applyApplicationState(payload) {
   APP_STATE_KEYS.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(savedState, key)) state[key] = cloneSettingsData(savedState[key]);
   });
+  const normalizedLoopCards = repairLoopCardLocations(state.loopCards);
+  state.loopCards = normalizedLoopCards.loopCards;
+  repairedText ||= normalizedLoopCards.repaired;
   if (!Object.prototype.hasOwnProperty.call(savedState, "panelUserAccounts")) {
     const legacyUsers = Array.isArray(savedState.userAccounts) ? savedState.userAccounts : [];
     state.userAccounts = legacyUsers
@@ -448,6 +492,9 @@ function applyApplicationState(payload) {
     state.panelUserAccounts = storedPanelUserAccounts.map((user) => ({ ...user }));
   }
   if (Array.isArray(savedState.savedSettingFiles)) state.savedSettingFiles = savedState.savedSettingFiles;
+  const normalizedSavedFiles = repairSavedLoopCardLocations(state.savedSettingFiles);
+  state.savedSettingFiles = normalizedSavedFiles.files;
+  repairedText ||= normalizedSavedFiles.repaired;
   activeLanguage = state.language || "fa";
   localStorage.setItem("fire-panel-language", activeLanguage);
   localStorage.setItem("fire-panel-managed-users", JSON.stringify(state.userAccounts || []));
@@ -456,6 +503,7 @@ function applyApplicationState(payload) {
   else document.documentElement.classList.remove("dark");
   state.settingsBaselineSnapshot = captureSettingsSnapshot();
   state.settingsDirty = false;
+  return repairedText;
 }
 
 async function loadApplicationState() {
@@ -473,8 +521,11 @@ async function loadApplicationState() {
       return true;
     }
     if (result.payload) {
-      applyApplicationState(result.payload);
-      cacheApplicationState(result.payload, result.updatedAt || new Date().toISOString());
+      const repairedText = applyApplicationState(result.payload);
+      if (repairedText) {
+        databasePersistenceReady = true;
+        await saveApplicationStateNow();
+      } else cacheApplicationState(result.payload, result.updatedAt || new Date().toISOString());
     } else if (cached?.payload) {
       applyApplicationState(cached.payload);
       databasePersistenceReady = true;
@@ -498,6 +549,44 @@ function queueApplicationStateSave() {
     databaseSaveTimer = null;
     void saveApplicationStateNow();
   }, 350);
+}
+
+function updateFloorPlanDeviceAddress({ panelId, loopCardId, deviceId, address, conflictResolution = "reject", replacementAddress }) {
+  const english = state.language === "en";
+  const nextAddress = Number(String(address ?? "").trim());
+  if (!Number.isInteger(nextAddress) || nextAddress < 1 || nextAddress > 254) {
+    return { ok: false, error: english ? "Address must be a whole number from 1 to 254." : "آدرس باید عدد صحیحی بین ۱ تا ۲۵۴ باشد." };
+  }
+
+  const saved = [...(state.savedSettingFiles || [])]
+    .filter((file) => file.panelId === panelId && Array.isArray(file.snapshot?.loopCards))
+    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))[0];
+  const activeDevices = panelId === state.selectedPanelId && Array.isArray(state.loopCards) ? state.loopCards : null;
+  const activeHasDevices = activeDevices?.some((item) => Array.isArray(item.devices) && item.devices.length > 0);
+  const cards = activeHasDevices ? activeDevices : saved?.snapshot?.loopCards || activeDevices || [];
+  const card = cards.find((item) => item.id === loopCardId);
+  const device = card?.devices?.find((item) => item.id === deviceId);
+  if (!device) return { ok: false, error: english ? "The selected device is no longer in this loop card." : "این دیوایس دیگر در کارت لوپ انتخاب‌شده وجود ندارد." };
+  const conflictingDevice = card.devices.find((item) => item.id !== deviceId && Number(item.number) === nextAddress);
+  if (conflictingDevice && conflictResolution === "reassign") {
+    const replacement = Number(String(replacementAddress ?? "").trim());
+    if (!Number.isInteger(replacement) || replacement < 1 || replacement > 254 || card.devices.some((item) => item.id !== deviceId && Number(item.number) === replacement)) {
+      return { ok: false, error: english ? "Choose an unused address from 1 to 254." : "یک آدرس آزاد بین ۱ تا ۲۵۴ انتخاب کنید." };
+    }
+    address = replacement;
+  } else if (conflictingDevice && conflictResolution !== "swap") {
+    return { ok: false, error: english ? `Address ${nextAddress} is already used on this loop card.` : `آدرس ${faDigits(nextAddress)} در این کارت لوپ قبلاً استفاده شده است.` };
+  }
+
+  // Follow the same active-registry-first rule used to build the floor-plan list.
+  if (conflictingDevice && conflictResolution === "swap") conflictingDevice.number = Number(device.number);
+  device.number = conflictResolution === "reassign" ? Number(address) : nextAddress;
+  if (cards === saved?.snapshot?.loopCards) {
+    try { persistSettingsFiles(); }
+    catch (error) { console.warn("Floor-plan device address will be persisted through the application state API.", error); }
+  }
+  queueApplicationStateSave();
+  return { ok: true, address: Number(device.number), swapped: conflictingDevice && conflictResolution === "swap" ? { deviceId: conflictingDevice.id, address: conflictingDevice.number } : null };
 }
 
 function saveApplicationStateNow() {
@@ -848,7 +937,7 @@ function renderShell() {
           <button class="nav-item" type="button" data-nav-view="talk">${icons.message}<span>صحبت</span></button>
           <p class="nav-caption nav-space">مدیریت</p>
           <p class="nav-caption nav-space" id="floor-plan-nav-caption">${state.language === "en" ? "Device Settings" : "تنظیمات دیوایس‌ها"}</p>
-          <button class="nav-item nav-subitem" type="button" data-nav-view="floor-plans"><span class="floor-plan-nav-icon" aria-hidden="true">⌖</span><span id="floor-plan-nav-label">${state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان دیوایس‌ها"}</span></button>
+          <button class="nav-item" type="button" data-nav-view="floor-plans">${icons.map}<span id="floor-plan-nav-label">${state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان"}</span></button>
           <button class="nav-item" type="button" data-nav-view="panels">${icons.panel}<span>پنل‌های من</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="language">${icons.settings}<span>زبان</span></button>
           <button class="nav-item" type="button" data-nav-view="workspace" data-nav-setting="saved-settings">${icons.report}<span>تنظیمات ذخیره شده</span></button>
@@ -1989,7 +2078,7 @@ function renderGroupListItem(ref, english, selected = false) {
   const { card, device } = findGroupDevice(ref);
   if (!device) return "";
   const type = loopDeviceTypes.find((item) => item.key === device.type) || loopDeviceTypes[0];
-  return `<button type="button" class="group-device-entry${selected ? " selected" : ""}" data-group-selected-key="${groupDeviceKey(ref.loopId, ref.deviceId)}"${panelRequiredAttr(!state.connectedPanelId)}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${english ? type.en : type.fa}</b><small>${device.location || "—"}</small></span>${selected ? icons.check : icons.chevronLeft}</button>`;
+  return `<button type="button" class="group-device-entry${selected ? " selected" : ""}" data-group-selected-key="${groupDeviceKey(ref.loopId, ref.deviceId)}"${panelRequiredAttr(!state.connectedPanelId)}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${english ? type.en : type.fa}</b><small>${escapeHtml(loopDeviceLocationLabel(device))}</small></span>${selected ? icons.check : icons.chevronLeft}</button>`;
 }
 
 function renderGroupSettingZone() {
@@ -2008,7 +2097,7 @@ function renderGroupSettingZone() {
     const selectedLoop = state.loopCards.find((card) => card.id === state.zoneLoopCardId) || state.loopCards[0];
     const groupedKeys = new Set(group.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
     const inputDevices = (selectedLoop?.devices || []).filter((device) => !groupedKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
-    const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
+    const inputList = inputDevices.length ? inputDevices.map((device) => `<button type="button" class="group-device-entry" data-zone-input-device="${device.id}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${escapeHtml(loopDeviceLocationLabel(device))}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No available input devices on this loop." : "دیوایس ورودی قابل انتخابی در این لوپ وجود ندارد."}</div>`;
     const groupedList = group.length ? group.map((ref) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Click a device to add it to this group." : "برای افزودن دیوایس به گروه روی آن کلیک کنید."}</div>`;
     return `<article class="sub-card group-setting"><div class="sub-card-head"><div><h3>${title}</h3><p>${description}</p></div><span class="status-chip ${disabled ? "amber" : "green"}">${disabled ? (english ? "Not connected" : "متصل نیست") : (english ? "Ready" : "آماده")}</span></div>${tabs}${toolbar("zone")}<div class="group-form-grid">${selectField(english ? "Group Number" : "شماره گروه", "data-zone-group-number", groupNumberOptions(state.zoneGroupNumber))}${selectField(english ? "Loop Number" : "شماره لوپ کارت", "data-zone-loop", groupLoopOptions(state.zoneLoopCardId))}<label class="group-switch-field"><span><b>${english ? "Pre Alarm" : "پیش هشدار"}</b><small>${english ? "Enable pre-alarm for this zone group." : "پیش‌هشدار این گروه زون را فعال کنید."}</small></span><span class="group-switch-wrap"><em>${state.zonePreAlarm[state.zoneGroupNumber] ? (english ? "Enable" : "فعال") : (english ? "Disable" : "غیرفعال")}</em><input type="checkbox" data-zone-prealarm ${state.zonePreAlarm[state.zoneGroupNumber] ? "checked" : ""}${disabledAttr}><i class="network-toggle"></i></span></label></div><div class="group-device-columns zone-columns"><section class="group-device-panel"><div class="group-panel-head"><div><h4>${english ? "Input Devices" : "دیوایس‌های ورودی"}</h4><small>${english ? "Click a device to add it to the selected group." : "برای افزودن به گروه، دیوایس را انتخاب کنید."}</small></div><b>${faDigits(inputDevices.length)}</b></div><div class="group-device-list">${inputList}</div></section><section class="group-device-panel grouped-panel"><div class="group-panel-head"><div><h4>${english ? "Zone Grouped Devices List" : "لیست دیوایس‌های گروه‌بندی‌شده"}</h4><small>${english ? `Group ${state.zoneGroupNumber}` : `گروه ${faDigits(state.zoneGroupNumber)}`}</small></div><b>${faDigits(group.length)}</b></div><div class="group-device-list">${groupedList}</div></section></div>${actions("zone")}${renderSettingActions()}</article>`;
   }
@@ -2021,7 +2110,7 @@ function renderGroupSettingZone() {
   const usedOutputs = new Set(outputRefs.map((ref) => groupDeviceKey(ref.loopId, ref.deviceId)));
   const availableInputs = (selectedLoop?.devices || []).filter((device) => !isOutputGroupDevice(device) && !usedInputs.has(groupDeviceKey(selectedLoop.id, device.id)));
   const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !usedOutputs.has(groupDeviceKey(selectedLoop.id, device.id)));
-  const availableList = (items, kind) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${kind}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available." : "دیوایسی برای انتخاب وجود ندارد."}</div>`;
+  const availableList = (items, kind) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${kind}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${escapeHtml(loopDeviceLocationLabel(device))}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available." : "دیوایسی برای انتخاب وجود ندارد."}</div>`;
   const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
   const groupedList = grouped.length ? grouped.map(({ ref }) => renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists." : "دیوایس‌ها را از لیست‌های ورودی و خروجی اضافه کنید."}</div>`;
   const activeMax = inputRefs.length;
@@ -2048,7 +2137,7 @@ function renderInputOutputGroupSettingLegacy() {
   const availableOutputs = (selectedLoop?.devices || []).filter((device) => isOutputGroupDevice(device) && !outputKeys.has(groupDeviceKey(selectedLoop.id, device.id)));
   const grouped = [...inputRefs.map((ref) => ({ ref, kind: "input" })), ...outputRefs.map((ref) => ({ ref, kind: "output" }))];
   const tabs = `<div class="group-tabs" role="tablist"><button type="button" class="group-tab" data-group-tab="zone" role="tab">${english ? "Zone Group" : "گروهبندی زون"}</button><button type="button" class="group-tab active" data-group-tab="io" role="tab" aria-selected="true">${english ? "Input & Output Group" : "گروهبندی ورودی و خروجی"}</button></div>`;
-  const optionList = (items) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این گروه قابل انتخاب نیست."}</div>`;
+  const optionList = (items) => items.length ? items.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${escapeHtml(loopDeviceLocationLabel(device))}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این گروه قابل انتخاب نیست."}</div>`;
   const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the input and output lists." : "دیوایس‌ها را از دو لیست ورودی و خروجی اضافه کنید."}</div>`;
   const outputOptions = [["fire", english ? "Fire" : "حریق"], ["supervisory", english ? "Supervisory" : "نظارتی"], ["fault", english ? "Fault" : "خطا"], ["reset", english ? "Reset" : "ریست"], ["pre-alarm", english ? "Pre Alarm" : "پیش هشدار"]];
   const selectField = (label, attr, options) => `<label class="group-field"><span>${label}</span><select ${attr}${disabledAttr}>${options}</select></label>`;
@@ -2090,7 +2179,7 @@ function renderInputOutputGroupSetting() {
       return `<button type="button" class="saved-io-relation${key === `${state.ioInputGroupNumber}-${state.ioOutputGroupNumber}` ? " active" : ""}${saved.status ? "" : " inactive"}" data-io-saved-relation="${key}"><span class="saved-io-relation-groups"><b>${english ? `Input ${inputGroup}` : `ورودی ${faDigits(inputGroup)}`}</b><i>&gt;</i><b>${english ? `Output ${outputGroup}` : `خروجی ${faDigits(outputGroup)}`}</b></span><span class="saved-io-relation-summary">${savedSummary}</span></button>`;
     }).join("")
     : `<div class="saved-io-relation-empty">${english ? "Saved input/output relations will remain visible here." : "ارتباط‌های ذخیره‌شده‌ی ورودی و خروجی در این بخش باقی می‌مانند."}</div>`;
-  const list = (devices) => devices.length ? devices.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${device.location || "—"}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این لوپ وجود ندارد."}</div>`;
+  const list = (devices) => devices.length ? devices.map((device) => `<button type="button" class="group-device-entry" data-io-add-device="${device.id}" data-io-kind="${isOutputGroupDevice(device) ? "output" : "input"}"${disabledAttr}><span class="group-device-address">${faDigits(device.number)}</span><span><b>${deviceIconMarkup(device.type)}${groupDeviceLabel({ loopId: selectedLoop.id, deviceId: device.id }, english)}</b><small>${escapeHtml(loopDeviceLocationLabel(device))}</small></span>${icons.chevronLeft}</button>`).join("") : `<div class="group-device-empty">${english ? "No devices available on this loop." : "دیوایسی برای این لوپ وجود ندارد."}</div>`;
   const groupedList = grouped.length ? grouped.map(({ ref, kind }) => `<div class="group-member-row"><span class="group-member-type">${kind === "input" ? (english ? "IN" : "ورودی") : (english ? "OUT" : "خروجی")}</span>${renderGroupListItem(ref, english, state.groupSelectedDeviceKey === groupDeviceKey(ref.loopId, ref.deviceId))}</div>`).join("") : `<div class="group-device-empty">${english ? "Add devices from the lists above." : "دیوایس‌ها را از لیست‌های بالا اضافه کنید."}</div>`;
   const activeCount = Math.max(1, Math.min(16, Number(relation.activeCount) || 1));
   const activeCountOptions = Array.from({ length: 16 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${activeCount === value ? "selected" : ""}>${faDigits(value)}</option>`).join("");
@@ -2546,7 +2635,7 @@ function renderApp() {
   const floorPlanCaption = document.querySelector("#floor-plan-nav-caption");
   const floorPlanNavLabel = document.querySelector("#floor-plan-nav-label");
   if (floorPlanCaption) floorPlanCaption.textContent = state.language === "en" ? "Device Settings" : "تنظیمات دیوایس‌ها";
-  if (floorPlanNavLabel) floorPlanNavLabel.textContent = state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان دیوایس‌ها";
+  if (floorPlanNavLabel) floorPlanNavLabel.textContent = state.language === "en" ? "Floor Plan Layout" : "نقشه و چیدمان";
   if (state.view === "workspace" && !project) {
     state.view = "projects";
     state.selectedProjectId = null;
@@ -2591,7 +2680,9 @@ function renderApp() {
     const selectedPanelProject = projects.find((item) => item.panels.some((panel) => panel.id === state.selectedPanelId));
     const initialProjectId = selectedPanelProject?.id || projects.find((item) => item.id === state.selectedProjectId)?.id || "";
     const initialPanelId = selectedPanelProject ? state.selectedPanelId : "";
-    void import("./floor-plan.js").then(({ mountFloorPlanModule }) => mountFloorPlanModule(document.querySelector("#floor-plan-module"), { projects, panelDevices, initialProjectId, initialPanelId, language: state.language })).catch((error) => showToast(error.message, "error"));
+    const floorPlanDeviceIcons = Object.fromEntries(loopDeviceTypes.map(({ key }) => [key, deviceIconMarkup(key)]));
+    const floorPlanDeviceIconUrls = Object.fromEntries(Object.entries(deviceIconFiles).map(([key, file]) => [key, `/icons/${file}`]));
+    void import("./floor-plan.js").then(({ mountFloorPlanModule }) => mountFloorPlanModule(document.querySelector("#floor-plan-module"), { projects, panelDevices, initialProjectId, initialPanelId, language: state.language, deviceIcons: floorPlanDeviceIcons, deviceIconUrls: floorPlanDeviceIconUrls, onDeviceAddressChange: updateFloorPlanDeviceAddress })).catch((error) => showToast(error.message, "error"));
   }
   if (isTalk) void bindTalkConsole(content);
   else if (talkRefreshTimer) { clearInterval(talkRefreshTimer); talkRefreshTimer = null; }

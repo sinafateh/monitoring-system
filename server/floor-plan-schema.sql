@@ -28,3 +28,5 @@ CREATE INDEX IF NOT EXISTS floor_plan_devices_plan_page_idx ON floor_plan_device
 ALTER TABLE floor_plan_devices ADD COLUMN IF NOT EXISTS loop_no TEXT NOT NULL DEFAULT '';
 ALTER TABLE floor_plans ADD COLUMN IF NOT EXISTS project_id TEXT;
 ALTER TABLE floor_plan_devices ADD COLUMN IF NOT EXISTS panel_id TEXT;
+ALTER TABLE floor_plan_devices ADD COLUMN IF NOT EXISTS device_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE floor_plan_devices ADD COLUMN IF NOT EXISTS icon_type TEXT NOT NULL DEFAULT '';

@@ -45,6 +45,9 @@ body { margin: 0; min-width: 320px; color: var(--text-main); background: var(--a
 button, input { font: inherit; }
 button { cursor: pointer; border: 0; }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Static copy uses the normal arrow; text entry keeps its I-beam and caret. */
+body #app { cursor: default; caret-color: transparent; }
+body #app :is(input:not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, [contenteditable="true"]) { cursor: text; caret-color: auto; }
 .app-shell { min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 0 0 auto; z-index: 20; display: flex; flex-direction: column; width: 264px; color: #e5e7e9; background: radial-gradient(circle at 100% 0%, rgba(148,163,184,.12), transparent 32%), linear-gradient(180deg,#1e293b,#0f172a); box-shadow: -12px 0 35px rgba(23,26,29,.08); }
 .brand-row { height: 84px; display: flex; align-items: center; gap: 11px; padding: 0 20px; border-bottom: 1px solid rgba(255,255,255,.09); }
